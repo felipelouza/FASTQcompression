@@ -1,3 +1,4 @@
+// vim: noai:ts=2:sw=2
 //
 //  FASTQcompression.cpp
 //  FASTQcompression
@@ -57,7 +58,7 @@ vector<string> read_ids;//ID of each read
 uint64_t modified = 0;//count how many bases have been modified
 uint64_t clusters_size=0;//total number of bases inside clusters
 
-vector<uint64_t> freqs(256,0);//temporary vector used to count frequency of bases inside the currently analyzed cluster
+//vector<uint64_t> freqs(256,0);//temporary vector used to count frequency of bases inside the currently analyzed cluster
 vector<char> high_freqs;
 
 vector<uint64_t> statistics_qual_before(256,0);//count absolute frequencies of qualities in reads, before modifying
@@ -80,10 +81,13 @@ bool revc = false;
 char TERM = '#';
 
 string QUAL;//string of length |BWT| that contains the base qualities, for each BWT position
-string BWT_MOD;//string of length |BWT| that duplicates the BWT.
+//string BWT_MOD;//string of length |BWT| that duplicates the BWT.
+char *BWT_MOD;
 
-vector<bool> LCP_minima;//bitvector that stores the LCP minima
-vector<bool> LCP_threshold;//bitvector that stores LCP values that exceed the threshold: >= K
+//vector<bool> LCP_minima;//bitvector that stores the LCP minima
+bool *LCP_minima;//bitvector that stores the LCP minima
+//vector<bool> LCP_threshold;//bitvector that stores LCP values that exceed the threshold: >= K
+bool *LCP_threshold;//bitvector that stores LCP values that exceed the threshold: >= K
 
 dna_bwt_n_t bwt;//the BWT data structure
 
@@ -91,6 +95,8 @@ float rare_threshold = 40;//Thresholds used to determinate which bases to discar
 float quality_threshold = 20; 
 
 char default_value = '5';
+
+char DNA[5] = {'A', 'C', 'G', 'T', 'N'};
 
 void help(){
     
@@ -120,20 +126,24 @@ bool file_exists(string fileName)
 }
 
 void def_qs(){
-int min = 126;
-int max = 33;
-	for(char& c : QUAL) {
-		if((int)c != 0){
-    			if((int)c > max){
-				max = (int)c;
-			}
-			if((int)c < min){
-				min = (int)c;
-			}
-		}
-	}
-default_value = (char)(max+min)/2;
 
+  int min = 126;
+  int max = 33;
+
+  //for(char& c : QUAL) {
+  for(size_t i=0; i<bwt.size(); i++){
+    int c = QUAL[i];
+  	if(c != 0){
+    	if(c > max){
+  			max = c;
+  		}
+  		if(c < min){
+  			min = c;
+  		}
+  	}
+  }
+
+  default_value = (char)(max+min)/2;
 }
 
 
@@ -210,7 +220,8 @@ void detect_minima(){
     /*
      * LCP_threshold[i] == 1 iff LCP[i] >= K
      */
-    LCP_threshold = vector<bool>(n,false);
+    //LCP_threshold = vector<bool>(n,false);
+    LCP_threshold = new bool[n]{false};
     
     uint64_t leaves = 0;//number of visited leaves
     uint64_t max_stack = 0;
@@ -245,11 +256,8 @@ void detect_minima(){
             perc_lcp = (100*lcp_values)/n;
             
             if(perc_lcp > last_perc_lcp){
-                
-		if(verbose) cout << "LCP: " << perc_lcp << "%." <<  endl;
-                
+		            if(verbose) cout << "LCP: " << perc_lcp << "%." <<  endl;
                 last_perc_lcp = perc_lcp;
-                
             }
             
         }
@@ -262,7 +270,8 @@ void detect_minima(){
     
     cout << "Phase 3/4: computing LCP minima." << endl;
     
-    LCP_minima = vector<bool>(n,false);
+    //LCP_minima = vector<bool>(n,false);
+    LCP_minima = new bool[n]{false};
     
     auto TMP_NODES = vector<sa_node_n>(5);
     
@@ -300,7 +309,6 @@ void detect_minima(){
         if(perc_lcp > last_perc_lcp){
             
             if(verbose) cout << "LCP: " << perc_lcp << "%." << endl;
-            
             last_perc_lcp = perc_lcp;
             
         }
@@ -311,7 +319,6 @@ void detect_minima(){
     cout << "Found " << n_min << " LCP minima." << endl;
     cout << "Max stack depth = " << max_stack << endl;
     cout << "Processed " << nodes << " suffix-tree nodes." << endl;
-    
     
 }
 
@@ -324,87 +331,85 @@ void detect_minima(){
 //This function modifies a Quality Score to be Illumina 8 Level Binning compliant
 int illumina_8_level_binning(int newqs){
 
-if (newqs >= 2 && newqs <= 9){ newqs = 6;}
-else if (newqs >= 10 && newqs <= 19){ newqs = 15;}
-else if (newqs >= 20 && newqs <= 24){ newqs = 22;}
-else if (newqs >= 25 && newqs <= 29){ newqs = 27;}
-else if (newqs >= 30 && newqs <= 34){ newqs = 33;}
-else if (newqs >= 35 && newqs <= 39){ newqs = 37;}
-else if (newqs >= 40){ newqs = 40;}
-else{ newqs = 0;}
+  /*
+  if (newqs >= 2 && newqs <= 9){ newqs = 6;}
+  else if (newqs >= 10 && newqs <= 19){ newqs = 15;}
+  else if (newqs >= 20 && newqs <= 24){ newqs = 22;}
+  else if (newqs >= 25 && newqs <= 29){ newqs = 27;}
+  else if (newqs >= 30 && newqs <= 34){ newqs = 33;}
+  else if (newqs >= 35 && newqs <= 39){ newqs = 37;}
+  else if (newqs >= 40){ newqs = 40;}
+  else{ newqs = 0;}
+  */
+
+  if (newqs < 2) newqs=0;
+  else if (newqs <= 9)  newqs = 6;
+  else if (newqs <= 19) newqs = 15;
+  else if (newqs <= 24) newqs = 22;
+  else if (newqs <= 29) newqs = 27;
+  else if (newqs <= 34) newqs = 33;
+  else if (newqs <= 39) newqs = 37;
+  else newqs = 40;
 
 return newqs+33;
-
 }
 
 
 //This function calculates the average quality score in a cluster
 int avg_qs(uint64_t start, uint64_t end){
 
-int sum=0;
-int num=0;
-
-for(uint64_t j=start; j<=end; j++){
-
-	if(bwt[j] != bwt.get_term()){
-
-		sum=sum+(int)QUAL[j];
-		num++;
-	}
-
-
-}
-
+  int sum=0;
+  int num=0;
+  
+  for(uint64_t j=start; j<=end; j++){
+  	//if(bwt[j] != bwt.get_term()){
+  	if(bwt[j] != TERM){
+  		sum=sum+(int)QUAL[j];
+  		num++;
+  	}
+  }
+  
 if(sum==0) return 0;
 return (sum/num);
-
 }
 
 
 //This function calculates the max quality score in a cluster
 int max_qs(uint64_t start, uint64_t end){
 
-int max=0;
-for(uint64_t j=start; j<=end; j++){
-
-	if(bwt[j] != bwt.get_term()){
-
-		if((int)QUAL[j] > max){
-			max = (int)QUAL[j];
-		}
-	}
-
-
-}
+  int max=0;
+  for(uint64_t j=start; j<=end; j++){
+  	//if(bwt[j] != bwt.get_term()){
+  	if(bwt[j] != TERM){
+  		if((int)QUAL[j] > max){
+  			max = (int)QUAL[j];
+  		}
+  	}
+  }
 return max;
-
 }
 
 
 //This function calculates the mean error and, relying on it, calculates a new quality score
 int mean_error(uint64_t start, uint64_t end){
 
-double avg_err=0;
-double num = 0;
-double sum_err = 0;
-
-for(uint64_t j=start; j<=end; j++){
-
-	if(bwt[j] != bwt.get_term()){
-		num++;
-		sum_err = sum_err + pow(10, -((double)QUAL[j]-33)/10);
-	}
-
+  double avg_err=0;
+  double num = 0;
+  double sum_err = 0;
+  
+  for(uint64_t j=start; j<=end; j++){
+  
+  	//if(bwt[j] != bwt.get_term()){
+  	if(bwt[j] != TERM){
+  		num++;
+  		sum_err = sum_err + pow(10, -((double)QUAL[j]-33)/10);
+  	}
+  }
+  
+  avg_err = sum_err/num;
+  int qs = round(-10*log10(avg_err));
+  return qs+33;
 }
-
-avg_err = sum_err/num;
-int qs = round(-10*log10(avg_err));
-return qs+33;
-}
-
-
-
-
 
 
 /*
@@ -417,9 +422,6 @@ return qs+33;
 void process_cluster(uint64_t begin, uint64_t i){
 
 
-  
-
-
     uint64_t start=(begin>=border?begin-border:0);
     uint64_t end=(i>border?i-border:0);
     
@@ -429,53 +431,50 @@ void process_cluster(uint64_t begin, uint64_t i){
     //cluster is too short
     if(size < m) return;
 
+    uint64_t *freqs = new uint64_t[256]{0};
+
     char newqs;
-
     uint64_t maxfreq = 0;
-
     char mostfreq;
-  
-    
     
     //printing bases+QS in the cluster to look them up
-    
     if(verbose) cout << "----\n";
 
     int base_num = 0;
     for(uint64_t j = start; j <= end; ++j){
 
-
         /*Counts the frequency of each base and stores it in a vector, moreover stores the maximum/avg QS in a variable*/
-	if(bwt[j] != bwt.get_term()){
+	      //if(bwt[j] != bwt.get_term()){
+  	    if(bwt[j] != TERM){
             freqs[bwt[j]]++;
-	    base_num++;
-	}
-
+	          base_num++;
+	      }
         if(verbose) cout << bwt[j] << "\t" << (int)QUAL[j]-33 << endl;
     }
-    
 
-    if(base_num == 0) return;
-
+    if(base_num == 0){
+      delete freqs;
+      return;
+    }
 
     /*Through max_qs we obtain the highest qs in the cluster, through avg_qs we obtain the average qs in the cluster, while
       through default_value we set the new quality score value to a fixed value previously calculated */
 
     #if M==0
-	newqs = max_qs(start,end);
+	    newqs = max_qs(start,end);
     #elif M==1
-	newqs = avg_qs(start,end);
+    	newqs = avg_qs(start,end);
     #elif M==2
-	newqs = default_value;
+    	newqs = default_value;
     #elif M==3
-	newqs = mean_error(start,end);
+    	newqs = mean_error(start,end);
     #else
-	cout << "WARNING: unsupported choice. The process will use M=0." << endl;
-	newqs = max_qs(start,end);
+    	cout << "WARNING: unsupported choice. The process will use M=0." << endl;
+    	newqs = max_qs(start,end);
     #endif
 
     #if B==1
-	newqs = illumina_8_level_binning(newqs-33);
+    	newqs = illumina_8_level_binning(newqs-33);
     #endif
     if(verbose) cout << "****\n";
 
@@ -487,9 +486,18 @@ void process_cluster(uint64_t begin, uint64_t i){
     freqs['N'] = (100*freqs['N'])/(base_num);
 
     /*Through these variables we obtain the most frequent base in the cluster and its frequency */
-    mostfreq = std::max_element(freqs.begin(),freqs.end()) - freqs.begin();
-    maxfreq = *std::max_element(freqs.begin(), freqs.end());
+    //mostfreq = std::max_element(freqs.begin(),freqs.end()) - freqs.begin();
+    //maxfreq = *std::max_element(freqs.begin(), freqs.end());
+  
+    mostfreq = 0; //'A'
+    for(int i=1; i<5; i++)
+      if(freqs[DNA[i]]>freqs[DNA[mostfreq]])
+        mostfreq = i;
 
+    maxfreq = freqs[DNA[mostfreq]]; //freqs['A']
+
+
+    //FELIPE
 
     //Check if there's a base which frequence is similar to maxfreq and store it in a vector 
     vector<char> high_freqs;
@@ -502,103 +510,99 @@ void process_cluster(uint64_t begin, uint64_t i){
     //If there are less than 5 bases and there's more than a base with high frequency we haven't enough information
     //to do corrections
     if(high_freqs.size() > 1 && base_num < 5){
-	freqs['A'] = 0;
-	freqs['C'] = 0;
-	freqs['G'] = 0;
-	freqs['T'] = 0;
-	freqs['N'] = 0;
-	high_freqs.clear();
-	return;
+      /*
+    	freqs['A'] = 0;
+    	freqs['C'] = 0;
+    	freqs['G'] = 0;
+    	freqs['T'] = 0;
+    	freqs['N'] = 0;
+      */
+    	high_freqs.clear();
+      delete freqs;
+    	return;
     }
 
-
-
-
-    
-/*If there's only one base with high frequency, in this cycle we modify the values of QS and, 
-if the base is less frequent than rare_threshold and its QS is minor then quality_threshold, also the value stored in BWT_MOD*/
+    /*
+     * If there's only one base with high frequency, in this cycle we modify the values of QS and, 
+     * if the base is less frequent than rare_threshold and its QS is minor then quality_threshold, 
+     * also the value stored in BWT_MOD
+     */
     if(high_freqs.size() == 1){
     	for(uint64_t j = start; j <= end; ++j){
 
-		if(bwt[j] != bwt.get_term()){
-
-			if((freqs[bwt[j]]) < rare_threshold){	
-
-				if((int)(QUAL[j]-33) < quality_threshold){
-				
-					BWT_MOD[j] = mostfreq;
-					modified++;
-				
-				}
-			
-
-			}
-		
-			QUAL[j] = newqs;
-		}
-
+		    //if(bwt[j] != bwt.get_term()){
+  	    if(bwt[j] != TERM){
+		    	if((freqs[bwt[j]]) < rare_threshold){	
+		    		if((int)(QUAL[j]-33) < quality_threshold){
+		    			BWT_MOD[j] = mostfreq;
+		    			modified++;
+		    		}
+		    	}
+		    	QUAL[j] = newqs;
+		    }
     	}
     }
-//Otherwise we have to decide between more bases. 
+    //Otherwise we have to decide between more bases. 
     else{
 
-	//To do so we use the backward search to find which character in EBWT precedes each base in the cluster.
-	vector<vector<uint64_t>> LF_vect(256, vector<uint64_t>(256,0));
-
-	for(uint64_t j = start; j <= end; ++j){
-
-		if(bwt[j] != bwt.get_term()){
-			LF_vect[bwt[j]][bwt[bwt.LF(j)]]++;
-		}
-
-	}
-
-
-	for(uint64_t j = start; j <= end; ++j){
-
-		if(bwt[j] != bwt.get_term()){
-
-			if(std::find(high_freqs.begin(), high_freqs.end(), bwt[j]) == high_freqs.end()){	
-
-				if((int)(QUAL[j]-33) < quality_threshold){
-					
-					//If a low frequency base has also a low quality score we check if the symbol 
-					//that precedes it is equal to the one that precedes one of the high frequency base.
-					//In this case we replace the low frequency base with the high frequency base.
-					char freq1, freq2, new_base;
-					int count = 0;
-					freq2 = std::max_element(LF_vect[bwt[j]].begin(), LF_vect[bwt[j]].end())-LF_vect[bwt[j]].begin();
-					for(auto it : high_freqs){
-						freq1 = std::max_element(LF_vect[it].begin(), LF_vect[it].end())-LF_vect[it].begin();
-						
-						if(freq1 == freq2){
-							new_base = it;
-							count++;
-						} 
-					}
-			
-					if(count == 1){
-						BWT_MOD[j] = new_base;
-						modified++;
-					}
-				}
-			
-			}
-		
-			QUAL[j] = newqs;
-		}
-    	}
-
+  	  //To do so we use the backward search to find which character in EBWT precedes each base in the cluster.
+  	  vector<vector<uint64_t>> LF_vect(256, vector<uint64_t>(256,0));
+  
+  	  for(uint64_t j = start; j <= end; ++j){
+  	  	//if(bwt[j] != bwt.get_term()){
+      	if(bwt[j] != TERM)
+  	  		LF_vect[bwt[j]][bwt[bwt.LF(j)]]++;
+  	  }
+  
+  	  for(uint64_t j = start; j <= end; ++j){
+  
+  	  	//if(bwt[j] != bwt.get_term()){
+      	if(bwt[j] != TERM){
+  
+  	  		if(std::find(high_freqs.begin(), high_freqs.end(), bwt[j]) == high_freqs.end()){	
+  
+  	  			if((int)(QUAL[j]-33) < quality_threshold){
+  	  				
+  	  				//If a low frequency base has also a low quality score we check if the symbol 
+  	  				//that precedes it is equal to the one that precedes one of the high frequency base.
+  	  				//In this case we replace the low frequency base with the high frequency base.
+  	  				char freq1, freq2, new_base;
+  	  				int count = 0;
+  	  				freq2 = std::max_element(LF_vect[bwt[j]].begin(), LF_vect[bwt[j]].end())-LF_vect[bwt[j]].begin();
+  	  				for(auto it : high_freqs){
+  	  					freq1 = std::max_element(LF_vect[it].begin(), LF_vect[it].end())-LF_vect[it].begin();
+  	  					
+  	  					if(freq1 == freq2){
+  	  						new_base = it;
+  	  						count++;
+  	  					} 
+  	  				}
+  	  		
+  	  				if(count == 1){
+  	  					BWT_MOD[j] = new_base;
+  	  					modified++;
+  	  				}
+  	  			}
+  	  		
+  	  		}
+  	  		QUAL[j] = newqs;
+  	  	}
+      }
+  
     }
 
     //reset temporary vector that stores frequencies in the cluster
-	freqs['A'] = 0;
-	freqs['C'] = 0;
-	freqs['G'] = 0;
-	freqs['T'] = 0;
-	freqs['N'] = 0;
-	high_freqs.clear();
+    /*
+  	freqs['A'] = 0;
+  	freqs['C'] = 0;
+  	freqs['G'] = 0;
+  	freqs['T'] = 0;
+  	freqs['N'] = 0;
+    */
+	  high_freqs.clear();
+    delete freqs;
     
+    return;    
 }
 
 /*
@@ -620,20 +624,25 @@ void run(){
             ostringstream ss;
             ss << f.rdbuf();
             QUAL = ss.str();
-	    #if M==2
-	    	def_qs();
-	    #endif
+	          #if M==2
+	          	def_qs();
+	          #endif
         }
     }
     
     //read BWT bases into the string BWT_MOD
     {
+        /*
         ifstream f(input_dna); //taking file as inputstream
         if(f) {
             ostringstream ss;
             ss << f.rdbuf();
             BWT_MOD = ss.str();
         }
+        */
+        //The BWT is already in memory
+        BWT_MOD = new char[bwt.size()];
+        for(uint64_t i=0; i<bwt.size(); i++) BWT_MOD[i]=bwt[i];
     }
     
     uint64_t begin = 0;//begin position
@@ -648,7 +657,8 @@ void run(){
     
     //used only to compute and visualize cluster statistics
     uint64_t MAX_CLUST_LEN = 200;
-    auto CLUST_SIZES = vector<uint64_t>(MAX_CLUST_LEN+1,0);
+    //auto CLUST_SIZES = vector<uint64_t>(MAX_CLUST_LEN+1,0);
+    uint64_t CLUST_SIZES[MAX_CLUST_LEN+1]{0};
     
     uint64_t n = bwt.size();
     
@@ -658,44 +668,30 @@ void run(){
         if(LCP_threshold[i] and not LCP_minima[i]){
             
             if(cluster_open){//extend current cluster
-                
                 clust_len++;
-                
-            }else{//open new cluster
-                
+            }
+            else{//open new cluster
                 cluster_open=true;
                 clust_len=1;
                 begin=i;
-                
             }
             
         }else{
-            
             if(cluster_open){//close current cluster
-                
                 clust_size += clust_len;
-                
                 if(clust_len<=MAX_CLUST_LEN) CLUST_SIZES[clust_len]+=clust_len;
-                
                 process_cluster(begin, i);//position i included
-                
             }
-            
             cluster_open=false;
             clust_len = 0;
-            
         }
         
         perc = (100*i)/n;
         
         if(perc > last_perc){
-            
             if(verbose) cout << perc << "%. "<<endl;
-            
             last_perc = perc;
-            
         }
-        
     }
     
     cout     << endl << "Done." << endl;
@@ -712,6 +708,7 @@ void run(){
      
      }
      */
+
 }
 
 /*
@@ -731,7 +728,8 @@ void invert()
     ifstream in(original_fastq);
     
     //number of reads in the file
-    uint64_t N = bwt.rank(bwt.size(),bwt.get_term());
+    //uint64_t N = bwt.rank(bwt.size(),bwt.get_term());
+    uint64_t N = bwt.rank(bwt.size(),TERM);
     
     string line;
     
@@ -744,15 +742,13 @@ void invert()
         
         uint64_t j = i;//bwt[j] = current read character
         
-        while(bwt[j] != bwt.get_term())
-        {
+        //while(bwt[j] != bwt.get_term())
+        while(bwt[j] != TERM){
             
             bases.push_back(BWT_MOD[j]);
-
-	    #if B==1
-	    	QUAL[j] = illumina_8_level_binning((int)QUAL[j]-33);
-	    #endif
-
+	          #if B==1
+	          	QUAL[j] = illumina_8_level_binning((int)QUAL[j]-33);
+	          #endif
             qualities.push_back(QUAL[j]);
             j = bwt.LF(j); //backward search
         }
@@ -761,17 +757,15 @@ void invert()
         std::reverse(qualities.begin(),qualities.end());
         
         //if second half of reads is the reverse complement of first half, combine the two
-        if(revc)
-        {
+        if(revc){
             
             string bases_rc;
             string qualities_rc;
             
             j = i + N/2;//index of the corresponding read in the second half of the file
             
-            while(bwt[j] != bwt.get_term())
-            {
-                
+            //while(bwt[j] != bwt.get_term())
+            while(bwt[j] != TERM){
                 bases_rc.push_back(complement(BWT_MOD[j]));
                 qualities_rc.push_back(QUAL[j]);
                 j = bwt.LF(j);
@@ -846,7 +840,8 @@ void print_info(){
     if(debug){
         
         //number of reads
-        uint64_t N = bwt.rank(bwt.size(),bwt.get_term());
+        //uint64_t N = bwt.rank(bwt.size(),bwt.get_term());
+        uint64_t N = bwt.get_number_of_strings(); //number of TERMs
         
         read_info = vector<string>(bwt.size());
         
@@ -857,7 +852,8 @@ void print_info(){
                 uint64_t j = i + x*(N/2);
                 uint64_t off=0;//offset from the end of the read
                 
-                while(bwt[j] != bwt.get_term()){
+                //while(bwt[j] != bwt.get_term()){
+                while(bwt[j] != TERM){
                     
                     read_info[j] = read_ids[i].substr(0,max_id_len);
                     read_info[j].append(string("\t"));
@@ -916,16 +912,16 @@ int main(int argc, char** argv){
                 help();
                 break;
             case 'e':
-                input_dna = string(optarg);
+                input_dna = string(optarg); //eBWT(S)
                 break;
             case 'q':
-                input_qual = string(optarg);
+                input_qual = string(optarg);//qs(S)
                 break;
             case 'o':
-                output = string(optarg);
+                output = string(optarg);//output
                 break;
             case 'f':
-                original_fastq = string(optarg);
+                original_fastq = string(optarg);//FASTQ
                 break;
             case 'k':
                 K = atoi(optarg);
@@ -986,7 +982,8 @@ int main(int argc, char** argv){
     
     
     //number of reads in the file
-    uint64_t N = bwt.rank(bwt.size(),bwt.get_term());	
+    //uint64_t N = bwt.rank(bwt.size(),bwt.get_term());	
+    uint64_t N = bwt.get_number_of_strings(); //number of TERMs
 							
     cout << "Number of reads: " << N << endl;
     
@@ -1001,9 +998,11 @@ int main(int argc, char** argv){
     invert();
     cout << "end invert" << endl;
     
-    cout << clusters_size << " (" << (double(100*clusters_size)/BWT_MOD.size()) <<  "%) bases fall inside a cluster" << endl;
-    cout << "done. " << modified << "/" << BWT_MOD.size() << " bases have been modified (" << 100*double(modified)/BWT_MOD.size() << "% of all bases and " <<
-    100*double(modified)/clusters_size << "% of bases inside clusters)." << endl;
+    //cout << clusters_size << " (" << (double(100*clusters_size)/BWT_MOD.size()) <<  "%) bases fall inside a cluster" << endl;
+    //cout << "done. " << modified << "/" << BWT_MOD.size() << " bases have been modified (" << 100*double(modified)/BWT_MOD.size() << "% of all bases and " << 100*double(modified)/clusters_size << "% of bases inside clusters)." << endl;
+
+    cout << clusters_size << " (" << (double(100*clusters_size)/bwt.size()) <<  "%) bases fall inside a cluster" << endl;
+    cout << "done. " << modified << "/" << bwt.size() << " bases have been modified (" << 100*double(modified)/bwt.size() << "% of all bases and " << 100*double(modified)/clusters_size << "% of bases inside clusters)." << endl;
 
     if(debug)
         load_IDs();
@@ -1045,4 +1044,9 @@ int main(int argc, char** argv){
     if(debug)
         print_info();
     
+
+    //free
+    delete LCP_threshold;
+    delete LCP_minima;
+    delete BWT_MOD;
 }

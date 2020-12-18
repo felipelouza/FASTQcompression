@@ -361,6 +361,10 @@ public:
 
 	}
 
+	uint64_t get_number_of_strings(){
+		return F_A;
+	}
+
 	char get_term(){
 		return TERM;
 	}
