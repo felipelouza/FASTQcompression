@@ -32,6 +32,6 @@ run:
 	./fq_compression -e $(INPUT).bwt -q $(INPUT).bwt.qs -f $(INPUT).bwt -o $(OUTPUT) 
 	
 valgrind: 
-	$(MY_CXX) fq_compression.cpp -o fq_compression-test $(VLIB)
-	valgrind --tool=memcheck --leak-check=full --track-origins=yes ./fq_compression-test -e $(INPUT).bwt -q $(INPUT).bwt.qs -f $(INPUT).bwt -o $(OUTPUT) 
+	$(MY_CXX) fq_compression.cpp -o fq_compression $(VLIB)
+#	valgrind --tool=memcheck --leak-check=full --track-origins=yes ./fq_compression -e $(INPUT).bwt -q $(INPUT).bwt.qs -f $(INPUT).bwt -o $(OUTPUT) 
 
