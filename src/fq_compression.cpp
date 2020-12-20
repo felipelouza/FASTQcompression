@@ -826,7 +826,10 @@ void invert(){
       }//end-for  
     } //end if
     
-    for(auto q:qualities) statistics_qual_after[q-33]++;
+    #if DEBUG
+      for(auto q:qualities) statistics_qual_after[q-33]++;
+    #endif
+
     std::getline(in, line);//get read ID from the original FASTQ (headers)
     
     //write output FASTQ file

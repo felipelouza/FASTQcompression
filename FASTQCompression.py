@@ -109,12 +109,23 @@ def main():
 
         print("=== results ==="); 
         print("Original:\t{0:.2f} MB".format(insize/(1024*1024)))
+        print(args.input[0])
+        print("==")
+        print("Compressed:")
+        outsize = os.path.getsize(args.output[0]) #args.output[0] == FASTQ (modified)
+        print(args.output[0])
+        print("Total:\t{0:.2f} MB".format(outsize/(1024*1024)))
+        print("Ratio = {0:.2f}".format(outsize/insize))
+        print("==")
+        print("Compressed:")
         outsize = 0
-        for f in args.output:
-            size = os.path.getsize(f)
-            if(args.v): print(f, " - ", size)
+        i = 1
+        while i < len(args.output):
+            size = os.path.getsize(args.output[i])
+            print(args.output[i])
             outsize += size
-        print("Compressed:\t{0:.2f} MB".format(outsize/(1024*1024)))
+            i+=1
+        print("Total:\t{0:.2f} MB".format(outsize/(1024*1024)))
         print("Ratio = {0:.2f}".format(outsize/insize))
 
         # --- extra: compress INPUT.fastq with default method 
