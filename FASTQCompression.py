@@ -36,10 +36,10 @@ def main():
     parser.add_argument('--step3',    help='stop after step 3 (debug only)',action='store_true')
     parser.add_argument('--step4',    help='stop after step 4 (debug only)',action='store_true')
     parser.add_argument('--original', help='do not call step 2',action='store_true')
-    parser.add_argument('-1', '--a1', help='approach 1: FASTQ', action='store_true',default=True)
-    parser.add_argument('-2', '--a2', help='approach 2: BWT+QS', action='store_true')
-    parser.add_argument('-3', '--a3', help='approach 3: BWT+QS+H', action='store_true')
-    parser.add_argument('--headers',  help='ignores the headers', action='store_true', default=False)
+    parser.add_argument('-1', '--m1', help='mode 1: FASTQ', action='store_true',default=True)
+    parser.add_argument('-2', '--m2', help='mode 2: BWT+QS', action='store_true')
+    parser.add_argument('-3', '--m3', help='mode 3: BWT+QS+H', action='store_true')
+    parser.add_argument('--no_headers',  help='ignores the headers', action='store_true', default=False)
     parser.add_argument('--others',   help='run all competitors',action='store_true')
     parser.add_argument('-v',         help='verbose: extra info in the log file',action='store_true')
     args = parser.parse_args()
@@ -54,10 +54,10 @@ def main():
     with open(logfile_name,"w") as logfile:
         
         ##
-        if(args.a2): args.a1 = args.a3 = False
-        if(args.a3): args.a1 = args.a2 = False
+        if(args.m2): args.m1 = args.m3 = False
+        if(args.m3): args.m1 = args.m2 = False
         ##
-        if(not args.a1): args.headers = True
+        if(not args.m1): args.no_headers = True
         ##
 
         print(">>> fastq-bwt version " + Version,file=logfile)
@@ -88,7 +88,7 @@ def main():
             print("Exiting after step 2 as requested")
             return
 
-        if(args.a3):
+        if(args.m3):
             # --- step3: extract headers
             start = time.time()
             if(step3(args, logfile, logfile_name)!=True):
@@ -99,7 +99,7 @@ def main():
                 return
 
         # --- step4: compute BWT+QS
-        if(args.a2 or args.a3):
+        if(args.m2 or args.m3):
             start = time.time()
             if(step4(args, logfile, logfile_name)!=True):
                 sys.exit(1)
@@ -186,12 +186,12 @@ def step2(args, logfile, logfile_name):
         print("--- Step 2 ---", file=logfile); logfile.flush()
         exe = os.path.join(args.dir, smooth_exe)
         options = "-e " + args.tmp[0] + " -q " + args.tmp[1] + " -f " + args.input[0]+" -o "+args.out+".fq"
-        if(args.headers): #ignore headers
+        if(args.no_headers): #ignore headers
             options+=" -H"
         command = "{exe} {opt}".format(exe=exe, opt=options)
         print("=== smooth-qs ===")
         print(command)
-        if(args.a1): args.stream.append(args.out+".fq")
+        if(args.m1): args.stream.append(args.out+".fq")
         return execute_command(command, logfile, logfile_name)
     return True
 
