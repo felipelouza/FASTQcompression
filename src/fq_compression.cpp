@@ -28,6 +28,10 @@
   #define DEBUG 0
 #endif
 
+#ifndef REVC 
+  #define REVC 0
+#endif
+
 /*uint64_t min_cluster_length = 1000;
 uint64_t num_close_freq = 0;
 uint64_t num_cluster_5 = 0;
@@ -73,8 +77,10 @@ int K = 0;
 int m_def = 1;
 int m = 0;
 
-//this flag records if the input read file is divided in two halves: reads and their reverse complement
-bool revc = false;
+#if REVC
+  //this flag records if the input read file is divided in two halves: reads and their reverse complement
+  bool revc = false;
+#endif
 
 //terminator character at the end of the reads
 char TERM = '#';
@@ -771,84 +777,131 @@ void invert(){
   
   string line;
   
-  for(uint64_t i = 0;i < (revc?N/2:N);++i){//for each read (if revc=true, only first half of reads)
-       
-    string bases;
-    string qualities;
-    
-    uint64_t j = i;//bwt[j] = current read character
-    
-    while(bwt[j] != TERM){
-        
-      bases.push_back(BWT_MOD[j]);
-	    #if B==1
-	      QUAL[j] = illumina_8_level_binning((int)QUAL[j]-33);
-	    #endif
-      qualities.push_back(QUAL[j]);
-      j = bwt.LF(j); //backward search
-    }
-    
-    std::reverse(bases.begin(),bases.end());
-    std::reverse(qualities.begin(),qualities.end());
-    
-    //if second half of reads is the reverse complement of first half, combine the two
-    if(revc){
-        
-      string bases_rc;
-      string qualities_rc;
+  #if REVC == 0
+    for(uint64_t i = 0;i < N;++i){//for each read 
+         
+      string bases;
+      string qualities;
       
-      j = i + N/2;//index of the corresponding read in the second half of the file
+      uint64_t j = i;//bwt[j] = current read character
       
       while(bwt[j] != TERM){
-        bases_rc.push_back(complement(BWT_MOD[j]));
-        qualities_rc.push_back(QUAL[j]);
-        j = bwt.LF(j);
+          
+        bases.push_back(BWT_MOD[j]);
+        #if B==1
+          QUAL[j] = illumina_8_level_binning((int)QUAL[j]-33);
+        #endif
+        qualities.push_back(QUAL[j]);
+        j = bwt.LF(j); //backward search
       }
       
-      if(bases_rc.length() != bases.length()){
-        cout << "Error: second half of reads is not the reverse complement of first half. " << endl <<
-        "found pair with different lengths (" << bases_rc.length() << "/" << bases.length() << ")" << endl;
-        exit(0);
+      std::reverse(bases.begin(),bases.end());
+      std::reverse(qualities.begin(),qualities.end());
+
+      #if DEBUG
+        for(auto q:qualities) statistics_qual_after[q-33]++;
+      #endif
+
+      std::getline(in, line);//get read ID from the original FASTQ (headers)
+      
+      //write output FASTQ file
+      //cout << line << endl;
+
+      out << line << endl; //headers
+      out << bases << endl; //bases
+      out << "+" << endl;
+      out << qualities << endl; //qs
+      
+      //read input FASTQ file
+      std::getline(in, line);//bases
+      std::getline(in, line);//+
+      std::getline(in, line);//qs
+      
+      #if DEBUG
+        for(auto q:line) statistics_qual_before[q-33]++;
+      #endif
+    }
+
+  #else  
+
+    for(uint64_t i = 0;i < (revc?N/2:N);++i){//for each read (if revc=true, only first half of reads)
+         
+      string bases;
+      string qualities;
+      
+      uint64_t j = i;//bwt[j] = current read character
+      
+      while(bwt[j] != TERM){
+          
+        bases.push_back(BWT_MOD[j]);
+        #if B==1
+          QUAL[j] = illumina_8_level_binning((int)QUAL[j]-33);
+        #endif
+        qualities.push_back(QUAL[j]);
+        j = bwt.LF(j); //backward search
       }
       
-      /* DEFINE HOW TO COMBINE */
-      for(int k=0;k<bases.length();++k){
-        if (qualities[k] == qualities_rc[k]){
-          if(bases[k] != bases_rc[k]){
-            //??
+      std::reverse(bases.begin(),bases.end());
+      std::reverse(qualities.begin(),qualities.end());
+      
+      //if second half of reads is the reverse complement of first half, combine the two
+      if(revc){ 
+        string bases_rc;
+        string qualities_rc;
+        
+        j = i + N/2;//index of the corresponding read in the second half of the file
+        
+        while(bwt[j] != TERM){
+          bases_rc.push_back(complement(BWT_MOD[j]));
+          qualities_rc.push_back(QUAL[j]);
+          j = bwt.LF(j);
+        }
+        
+        if(bases_rc.length() != bases.length()){
+          cout << "Error: second half of reads is not the reverse complement of first half. " << endl <<
+          "found pair with different lengths (" << bases_rc.length() << "/" << bases.length() << ")" << endl;
+          exit(0);
+        }
+        
+        /* DEFINE HOW TO COMBINE */
+        for(int k=0;k<bases.length();++k){
+          if (qualities[k] == qualities_rc[k]){
+            if(bases[k] != bases_rc[k]){
+              //??
+            }
           }
-        }
-        else{
-          if(qualities[k] < qualities_rc[k]){
-		        bases[k] = bases_rc[k];
-          }   
-        }
-      }//end-for  
-    } //end if
-    
-    #if DEBUG
-      for(auto q:qualities) statistics_qual_after[q-33]++;
-    #endif
+          else{
+            if(qualities[k] < qualities_rc[k]){
+              bases[k] = bases_rc[k];
+            }   
+          }
+        }//end-for  
+      } //end if
+      
+      #if DEBUG
+        for(auto q:qualities) statistics_qual_after[q-33]++;
+      #endif
 
-    std::getline(in, line);//get read ID from the original FASTQ (headers)
-    
-    //write output FASTQ file
-    //cout << line << endl;
+      std::getline(in, line);//get read ID from the original FASTQ (headers)
+      
+      //write output FASTQ file
+      //cout << line << endl;
 
-    out << line << endl; //headers
-    out << bases << endl; //bases
-    out << "+" << endl;
-    out << qualities << endl; //qs
-    
-    //read input FASTQ file
-    std::getline(in, line);//bases
-    std::getline(in, line);//+
-    std::getline(in, line);//qs
-    
-    #if DEBUG
-      for(auto q:line) statistics_qual_before[q-33]++;
-    #endif
-  }//end for      
+      out << line << endl; //headers
+      out << bases << endl; //bases
+      out << "+" << endl;
+      out << qualities << endl; //qs
+      
+      //read input FASTQ file
+      std::getline(in, line);//bases
+      std::getline(in, line);//+
+      std::getline(in, line);//qs
+      
+      #if DEBUG
+        for(auto q:line) statistics_qual_before[q-33]++;
+      #endif
+    }//end for      
+  #endif
 }
 /*
  * END invert
@@ -869,9 +922,18 @@ void print_info(){
     
     read_info = vector<string>(bwt.size());
     
-    for(uint64_t i = 0;i < (revc?N/2:N);++i){//for each read (if RC=true, only first half of reads)
-        
-      for(int x=0;x<(revc?2:1);++x){
+    #if REVC
+      for(uint64_t i = 0;i < (revc?N/2:N);++i){//for each read (if RC=true, only first half of reads)
+    #else
+      for(uint64_t i = 0;i < N;++i){//for each read (if RC=true, only first half of reads)
+    #endif
+
+      #if REVC
+        for(int x=0;x<(revc?2:1);++x){
+      #else
+        int x=0;
+        {
+      #endif
         
         uint64_t j = i + x*(N/2);
         uint64_t off=0;//offset from the end of the read
@@ -914,136 +976,138 @@ void load_IDs(){
 
 int main(int argc, char** argv){
     
-    srand(time(NULL));
+  srand(time(NULL));
 
-    
-    if(argc < 3) help();
-    
-    int opt;
-    while ((opt = getopt(argc, argv, "he:q:o:f:k:m:t:rDv")) != -1){
-        switch (opt){
-            case 'h':
-                help();
-                break;
-            case 'e':
-                input_dna = string(optarg);
-                break;
-            case 'q':
-                input_qual = string(optarg);
-                break;
-            case 'o':
-                output = string(optarg);
-                break;
-            case 'f':
-                original_fastq = string(optarg);
-                break;
-            case 'k':
-                K = atoi(optarg);
-                break;
-            case 'm':
-                m = atoi(optarg);
-                break;
-            case 't':
-                TERM = atoi(optarg);
-                break;
-            case 'r':
-                revc=true;
-                break;
-            case 'D':
-                debug=true;
-                break;
-            case 'v':
-                verbose=true;
-                break;
-            default:
-                help();
-                return -1;
-        }
+  
+  if(argc < 3) help();
+  
+  int opt;
+  while ((opt = getopt(argc, argv, "he:q:o:f:k:m:t:rDv")) != -1){
+    switch (opt){
+      case 'h':
+        help();
+        break;
+      case 'e':
+        input_dna = string(optarg);
+        break;
+      case 'q':
+        input_qual = string(optarg);
+        break;
+      case 'o':
+        output = string(optarg);
+        break;
+      case 'f':
+        original_fastq = string(optarg);
+        break;
+      case 'k':
+        K = atoi(optarg);
+        break;
+      case 'm':
+        m = atoi(optarg);
+        break;
+      case 't':
+        TERM = atoi(optarg);
+        break;
+      #if REVC
+        case 'r':
+          revc=true;
+          break;
+      #endif
+      case 'D':
+        debug=true;
+        break;
+      case 'v':
+        verbose=true;
+        break;
+      default:
+        help();
+        return -1;
     }
+  }
 
-    K = K == 0 ? K_def : K;
-    m = m == 0 ? m_def : m;
+  K = K == 0 ? K_def : K;
+  m = m == 0 ? m_def : m;
 
-    if( input_dna.compare("")==0 or
-        input_qual.compare("")==0 or
-        output.compare("")==0 or
-        original_fastq.compare("")==0
-      ) help();
+  if( input_dna.compare("")==0 or
+      input_qual.compare("")==0 or
+      output.compare("")==0 or
+      original_fastq.compare("")==0
+    ) help();
 
-    if(not file_exists(input_dna)){
-      cout << "Error: could not find file " << input_dna << "." << endl << endl;
-      help();
-    }
+  if(not file_exists(input_dna)){
+    cout << "Error: could not find file " << input_dna << "." << endl << endl;
+    help();
+  }
 
-    if(not file_exists(input_qual)){
-      cout << "Error: could not find file " << input_qual << endl << endl;
-      help();
-    }
-
-
-    cout << "This is FASTQcompression." << endl;
-    cout << "\tK: " << K << endl;
-    cout << "Output fastq file: " << output << endl;
-    cout << endl;
-
-    cout << "Phase 1/4: loading and indexing eBWT ... " << flush;
-    bwt = dna_bwt_n_t(input_dna,TERM);
-    cout << "done." << endl;
+  if(not file_exists(input_qual)){
+    cout << "Error: could not find file " << input_qual << endl << endl;
+    help();
+  }
 
 
-    //number of reads in the file
-    //uint64_t N = bwt.rank(bwt.size(),TERM);	
-    uint64_t N = bwt.get_number_of_strings();
-    cout << "Number of reads: " << N << endl;
+  cout << "This is FASTQcompression." << endl;
+  cout << "\tK: " << K << endl;
+  cout << "Output fastq file: " << output << endl;
+  cout << endl;
 
-    //detects clusters through local LCP minima
-    detect_minima();
+  cout << "Phase 1/4: loading and indexing eBWT ... " << flush;
+  bwt = dna_bwt_n_t(input_dna,TERM);
+  cout << "done." << endl;
 
-    //start procedure run			
-    run();
-    cout << "end run" << endl;
-    //invert BWT
-    invert();
-    cout << "end invert" << endl;
 
-    cout << clusters_size << " (" << (double(100*clusters_size)/bwt.size()) <<  "%) bases fall inside a cluster" << endl;
-    cout << "done. " << modified << "/" << bwt.size() << " bases have been modified (" << 100*double(modified)/bwt.size() << "% of all bases and " <<
-      100*double(modified)/clusters_size << "% of bases inside clusters)." << endl;
+  //number of reads in the file
+  //uint64_t N = bwt.rank(bwt.size(),TERM);	
+  uint64_t N = bwt.get_number_of_strings();
+  cout << "Number of reads: " << N << endl;
 
-    if(debug)
-      load_IDs();
+  //detects clusters through local LCP minima
+  detect_minima();
 
-    #if DEBUG
-       cout << "Cumulative distribution of base qualities before: " << endl;
-       uint64_t sum_tot = 0;
-       for(auto x : statistics_qual_before) sum_tot+=x;
+  //start procedure run			
+  run();
+  cout << "end run" << endl;
+  //invert BWT
+  invert();
+  cout << "end invert" << endl;
 
-       uint64_t sum = 0;
+  cout << clusters_size << " (" << (double(100*clusters_size)/bwt.size()) <<  "%) bases fall inside a cluster" << endl;
+  cout << "done. " << modified << "/" << bwt.size() << " bases have been modified (" << 100*double(modified)/bwt.size() << "% of all bases and " <<
+    100*double(modified)/clusters_size << "% of bases inside clusters)." << endl;
 
-       for(int i=0;i<50;++i){
-       sum += statistics_qual_before[i];
-       cout << i << "\t" << statistics_qual_before[i] << "\t" << double(sum)/sum_tot << endl;
-       }
-       cout << endl;
+  if(debug)
+    load_IDs();
 
-       cout << "Cumulative distribution of base qualities after: " << endl;
-       sum_tot = 0;
-       for(auto x : statistics_qual_after) sum_tot+=x;
+  #if DEBUG
+     cout << "Cumulative distribution of base qualities before: " << endl;
+     uint64_t sum_tot = 0;
+     for(auto x : statistics_qual_before) sum_tot+=x;
 
-       sum = 0;
+     uint64_t sum = 0;
 
-       for(int i=0;i<50;++i){
-       sum += statistics_qual_after[i];
-       cout << i << "\t" << double(sum)/sum_tot << endl;
-       }
+     for(int i=0;i<50;++i){
+     sum += statistics_qual_before[i];
+     cout << i << "\t" << statistics_qual_before[i] << "\t" << double(sum)/sum_tot << endl;
+     }
+     cout << endl;
 
-       cout << endl;
-    #endif
+     cout << "Cumulative distribution of base qualities after: " << endl;
+     sum_tot = 0;
+     for(auto x : statistics_qual_after) sum_tot+=x;
 
-    if(debug)
-      print_info();
+     sum = 0;
 
-    delete[] LCP_threshold;
-    delete[] LCP_minima;
-    delete[] BWT_MOD;
+     for(int i=0;i<50;++i){
+     sum += statistics_qual_after[i];
+     cout << i << "\t" << double(sum)/sum_tot << endl;
+     }
+
+     cout << endl;
+  #endif
+
+  if(debug)
+    print_info();
+
+  delete[] LCP_threshold;
+  delete[] LCP_minima;
+  delete[] BWT_MOD;
 }
