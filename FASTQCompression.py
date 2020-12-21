@@ -28,16 +28,20 @@ smooth_exe = "src/fq_compression"
 
 def main():
     parser = argparse.ArgumentParser(description=Description, formatter_class=argparse.RawTextHelpFormatter)
-    parser.add_argument('input', help='input file name', type=str, nargs='+')
-    parser.add_argument('-o', '--out', help='output base name (def. input base name)', default="", type=str)  
+    parser.add_argument('input',      help='input file name', type=str, nargs='+')
+    parser.add_argument('-o','--out', help='output base name (def. input base name)', default="", type=str)  
     #parser.add_argument('--delete', help='delete output files',action='store_true')
-    parser.add_argument('-1', '--step1', help='stop after step 1 (debug only)',action='store_true')
-    parser.add_argument('-2', '--step2', help='stop after step 2 (debug only)',action='store_true')
-    parser.add_argument('-3', '--step3', help='stop after step 3 (debug only)',action='store_true')
-    parser.add_argument('-4', '--step4', help='stop after step 4 (debug only)',action='store_true')
+    parser.add_argument('--step1',    help='stop after step 1 (debug only)',action='store_true')
+    parser.add_argument('--step2',    help='stop after step 2 (debug only)',action='store_true')
+    parser.add_argument('--step3',    help='stop after step 3 (debug only)',action='store_true')
+    parser.add_argument('--step4',    help='stop after step 4 (debug only)',action='store_true')
     parser.add_argument('--original', help='do not call step 2',action='store_true')
-    parser.add_argument('--all', help='run all competitors',action='store_true')
-    parser.add_argument('-v',  help='verbose: extra info in the log file',action='store_true')
+    parser.add_argument('-1', '--a1', help='approach 1: FASTQ', action='store_true',default=True)
+    parser.add_argument('-2', '--a2', help='approach 2: BWT+QS', action='store_true')
+    parser.add_argument('-3', '--a3', help='approach 3: BWT+QS+H', action='store_true')
+    parser.add_argument('--headers',  help='ignores the headers', action='store_true', default=False)
+    parser.add_argument('--others',   help='run all competitors',action='store_true')
+    parser.add_argument('-v',         help='verbose: extra info in the log file',action='store_true')
     args = parser.parse_args()
     # ---- check number of input files and define basename
     check_input(args)
@@ -48,7 +52,14 @@ def main():
     print("Sending logging messages to file:", logfile_name)
 
     with open(logfile_name,"w") as logfile:
-    
+        
+        ##
+        if(args.a2): args.a1 = args.a3 = False
+        if(args.a3): args.a1 = args.a2 = False
+        ##
+        if(not args.a1): args.headers = True
+        ##
+
         print(">>> fastq-bwt version " + Version,file=logfile)
         show_command_line(logfile)
         logfile.flush()
@@ -77,23 +88,25 @@ def main():
             print("Exiting after step 2 as requested")
             return
 
-        # --- step3: extract headers
-        start = time.time()
-        if(step3(args, logfile, logfile_name)!=True):
-            sys.exit(1)
-        print("Elapsed time: {0:.4f}".format(time.time()-start))
-        if args.step3:
-            print("Exiting after step 3 as requested")
-            return
+        if(args.a3):
+            # --- step3: extract headers
+            start = time.time()
+            if(step3(args, logfile, logfile_name)!=True):
+                sys.exit(1)
+            print("Elapsed time: {0:.4f}".format(time.time()-start))
+            if args.step3:
+                print("Exiting after step 3 as requested")
+                return
 
         # --- step4: compute BWT+QS
-        start = time.time()
-        if(step4(args, logfile, logfile_name)!=True):
-            sys.exit(1)
-        print("Elapsed time: {0:.4f}".format(time.time()-start))
-        if args.step1:
-            print("Exiting after step 4 as requested")
-            return
+        if(args.a2 or args.a3):
+            start = time.time()
+            if(step4(args, logfile, logfile_name)!=True):
+                sys.exit(1)
+            print("Elapsed time: {0:.4f}".format(time.time()-start))
+            if args.step1:
+                print("Exiting after step 4 as requested")
+                return
         
         # compressed files
         args.output = []
@@ -109,48 +122,40 @@ def main():
 
         print("=== results ==="); 
         print("Original:\t{0:.2f} MB".format(insize/(1024*1024)))
-        print(args.input[0])
+        if(args.v): print(args.input[0])
         print("==")
-        print("Compressed:")
-        outsize = os.path.getsize(args.output[0]) #args.output[0] == FASTQ (modified)
-        print(args.output[0])
-        print("Total:\t{0:.2f} MB".format(outsize/(1024*1024)))
-        print("Ratio = {0:.2f}".format(outsize/insize))
-        print("==")
-        print("Compressed:")
         outsize = 0
-        i = 1
-        while i < len(args.output):
-            size = os.path.getsize(args.output[i])
-            print(args.output[i])
-            outsize += size
-            i+=1
-        print("Total:\t{0:.2f} MB".format(outsize/(1024*1024)))
+        for f in args.output:
+            outsize += os.path.getsize(f)
+        print("Compressed:\t{0:.2f} MB".format(outsize/(1024*1024)))
         print("Ratio = {0:.2f}".format(outsize/insize))
+        if(args.v):
+            for f in args.output:
+               print(f) 
 
         # --- extra: compress INPUT.fastq with default method 
-        if not args.all:
+        if not args.others:
             return
 
         #gzip
         start = time.time()
         if(gzip(args, logfile, logfile_name)!=True):
             sys.exit(1)
+        print("Elapsed time: {0:.4f}".format(time.time()-start))
         outsize = os.path.getsize(args.input[0]+".gz")
         print("Compressed:\t{0:.2f} MB".format(outsize/(1024*1024)))
         print("Ratio = {0:.2f}".format(outsize/insize))
 
-        print("Elapsed time: {0:.4f}".format(time.time()-start))
 
         #7zip
         start = time.time()
         if(zip7(args, logfile, logfile_name)!=True):
             sys.exit(1)
+        print("Elapsed time: {0:.4f}".format(time.time()-start))
         outsize = os.path.getsize(args.input[0]+".7z")
         print("Compressed:\t{0:.2f} MB".format(outsize/(1024*1024)))
         print("Ratio = {0:.2f}".format(outsize/insize))
 
-        print("Elapsed time: {0:.4f}".format(time.time()-start))
 
 
     return True
@@ -171,6 +176,7 @@ def step1(args, logfile, logfile_name):
     return execute_command(command, logfile, logfile_name)
 
 def step2(args, logfile, logfile_name):
+    #TODO: check
     if args.original:
         print("--- Step 2 ---", file=logfile); logfile.flush()
         command = "cp "+ args.input[0] +" "+args.out+".fq" 
@@ -180,10 +186,12 @@ def step2(args, logfile, logfile_name):
         print("--- Step 2 ---", file=logfile); logfile.flush()
         exe = os.path.join(args.dir, smooth_exe)
         options = "-e " + args.tmp[0] + " -q " + args.tmp[1] + " -f " + args.input[0]+" -o "+args.out+".fq"
+        if(args.headers): #ignore headers
+            options+=" -H"
         command = "{exe} {opt}".format(exe=exe, opt=options)
         print("=== smooth-qs ===")
         print(command)
-        args.stream.append(args.out+".fq")
+        if(args.a1): args.stream.append(args.out+".fq")
         return execute_command(command, logfile, logfile_name)
     return True
 

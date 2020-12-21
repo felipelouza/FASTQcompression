@@ -46,6 +46,8 @@ string input_qual;
 string original_fastq;
 string output;
 
+bool ignore_headers = false; //ignore headers
+
 /*
  * Debug mode variables: print the BWT and read names/qualities for each base
  */
@@ -121,6 +123,7 @@ void help(){
     "-m <arg>    Minimum length of cluster to be processed. Default: " << m_def << "." << endl <<
     "-t <arg>    ASCII value of terminator character. Default: " << int('#') << " (#)." << endl <<
     "-D          Print debug info for each BWT position." << endl << endl <<
+    "-H          Ignores the headers." << endl <<
     
     "\nTo run FASTQcompression, you must first build the extended Burrows-Wheeler Transform " <<
     "of the input DNA sequences and the corresponding permutation of base quality scores." << endl;
@@ -128,18 +131,21 @@ void help(){
     exit(0);
 }
 
-bool file_exists(string fileName)
-{
-    std::ifstream infile(fileName);
-    return infile.good();
+bool file_exists(string fileName){
+
+  std::ifstream infile(fileName);
+
+return infile.good();
 }
 
 void def_qs(){
-int min = 126;
-int max = 33;
+
+  int min = 126;
+  int max = 33;
+
 	for(char& c : QUAL) {
 		if((int)c != 0){
-    			if((int)c > max){
+    	if((int)c > max){
 				max = (int)c;
 			}
 			if((int)c < min){
@@ -147,7 +153,8 @@ int max = 33;
 			}
 		}
 	}
-default_value = (char)(max+min)/2;
+
+  default_value = (char)(max+min)/2;
 
 }
 
@@ -158,62 +165,46 @@ default_value = (char)(max+min)/2;
 
 void update_LCP_leaf(sa_leaf L, uint64_t & lcp_values){
     
-    for(uint64_t i = L.rn.first+1; i<L.rn.second; ++i){
-        
-        LCP_threshold[i] = (L.depth >= K);
-        
-        lcp_values++;
-        
-    }
-    
+  for(uint64_t i = L.rn.first+1; i<L.rn.second; ++i){ 
+    LCP_threshold[i] = (L.depth >= K);
+    lcp_values++;
+  }
 }
 
 void update_lcp_minima(sa_node_n x, uint64_t & n_min){
-
-
     
-    /*
-     * we have a minimum after the end of each child (that is different than #) of size at least 2 of the input node x, except
-     * if the candidate minimum position is the last or exceeds the interval of x
-     */
-    
-    if( x.first_C - x.first_A >= 2 and     // there are at least 2 'A'
-       x.first_C < x.last-1             // candidate min in x.first_C is not >= last position
-       ){
-        
-        LCP_minima[x.first_C] = true;
-        n_min++;
-        
-    }
-    
-    if( x.first_G - x.first_C >= 2 and     // there are at least 2 'C'
-       x.first_G < x.last-1             // candidate min in x.first_G is not >= last position
-       ){
-        
-        LCP_minima[x.first_G] = true;
-        n_min++;
-        
-    }
+  /*
+   * we have a minimum after the end of each child (that is different than #) of size at least 2 of the input node x, except
+   * if the candidate minimum position is the last or exceeds the interval of x
+   */
+  
+  if( x.first_C - x.first_A >= 2 and     // there are at least 2 'A'
+     x.first_C < x.last-1             // candidate min in x.first_C is not >= last position
+     ){
+      LCP_minima[x.first_C] = true;
+      n_min++;
+  }
+  
+  if( x.first_G - x.first_C >= 2 and     // there are at least 2 'C'
+     x.first_G < x.last-1             // candidate min in x.first_G is not >= last position
+     ){
+      LCP_minima[x.first_G] = true;
+      n_min++;
+  }
 
-    if( x.first_N - x.first_G >= 2 and     // there are at least 2 'G'
-       x.first_N < x.last-1             // candidate min in x.first_N is not >= last position
-       ){
-        
-        LCP_minima[x.first_N] = true;
-        n_min++;
-        
-    }
+  if( x.first_N - x.first_G >= 2 and     // there are at least 2 'G'
+     x.first_N < x.last-1             // candidate min in x.first_N is not >= last position
+     ){
+      LCP_minima[x.first_N] = true;
+      n_min++;
+  }
 
-    if( x.first_T - x.first_N >= 2 and     // there are at least 2 'N'
-       x.first_T < x.last-1             // candidate min in x.first_T is not >= last position
-       ){
-        
-        LCP_minima[x.first_T] = true;
-        n_min++;
-        
-    }
-
-    
+  if( x.first_T - x.first_N >= 2 and     // there are at least 2 'N'
+     x.first_T < x.last-1             // candidate min in x.first_T is not >= last position
+     ){
+      LCP_minima[x.first_T] = true;
+      n_min++;
+  }
 }
 
 void detect_minima(){
@@ -802,12 +793,14 @@ void invert(){
         for(auto q:qualities) statistics_qual_after[q-33]++;
       #endif
 
-      std::getline(in, line);//get read ID from the original FASTQ (headers)
-      
       //write output FASTQ file
-      //cout << line << endl;
+    
+      if(not ignore_headers){
+        std::getline(in, line);//get read ID from the original FASTQ (headers)
+        out << line << endl; //headers
+      }
+      else out<<"@"<<endl; //default header
 
-      out << line << endl; //headers
       out << bases << endl; //bases
       out << "+" << endl;
       out << qualities << endl; //qs
@@ -982,7 +975,7 @@ int main(int argc, char** argv){
   if(argc < 3) help();
   
   int opt;
-  while ((opt = getopt(argc, argv, "he:q:o:f:k:m:t:rDv")) != -1){
+  while ((opt = getopt(argc, argv, "he:q:o:f:k:m:t:rDvH")) != -1){
     switch (opt){
       case 'h':
         help();
@@ -1015,6 +1008,9 @@ int main(int argc, char** argv){
       #endif
       case 'D':
         debug=true;
+        break;
+      case 'H':
+        ignore_headers=true;
         break;
       case 'v':
         verbose=true;
