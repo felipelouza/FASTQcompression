@@ -20,6 +20,7 @@
 #include <stack>
 #include <sstream>
 #include <unordered_map>
+#include <cstring>
 #include "include.hpp"
 #include "dna_string_n.hpp"
 #include "dna_bwt_n.hpp"
@@ -31,6 +32,8 @@
 #ifndef REVC 
   #define REVC 0
 #endif
+
+#define LONGEST 10000 #longest read
 
 /*uint64_t min_cluster_length = 1000;
 uint64_t num_close_freq = 0;
@@ -759,9 +762,28 @@ void run(){
  */
 void invert(){
 
+  /*
   ofstream out(output);
   ifstream in(original_fastq);
-  
+  */
+
+  FILE *f_in = fopen(original_fastq.c_str(), "r");
+  if(!f_in) perror("invert");
+
+  FILE *f_out = fopen(output.c_str(), "w");
+  if(!f_in) perror("invert");
+
+  char header[]="@\n";
+  char plus[]="+\n";
+  size_t len = 0;
+
+  char BASES[LONGEST]{0};
+  char QS[LONGEST]{0};
+
+  BASES[LONGEST-1] = '\n';
+  QS[LONGEST-1] = '\n';
+
+
   //number of reads in the file
   //uint64_t N = bwt.rank(bwt.size(),TERM);
   uint64_t N = bwt.get_number_of_strings();
@@ -771,50 +793,83 @@ void invert(){
   #if REVC == 0
     for(uint64_t i = 0;i < N;++i){//for each read 
          
-      string bases;
-      string qualities;
+      //string bases;
+      //string qualities;
       
+      int nbases = LONGEST-1;
       uint64_t j = i;//bwt[j] = current read character
-      
+
       while(bwt[j] != TERM){
           
-        bases.push_back(BWT_MOD[j]);
+        //bases.push_back(BWT_MOD[j]);
+        BASES[--nbases] = BWT_MOD[j];
         #if B==1
           QUAL[j] = illumina_8_level_binning((int)QUAL[j]-33);
         #endif
-        qualities.push_back(QUAL[j]);
+        //qualities.push_back(QUAL[j]);
+        QS[nbases] = QUAL[j];
+
         j = bwt.LF(j); //backward search
       }
       
+      /*
       std::reverse(bases.begin(),bases.end());
       std::reverse(qualities.begin(),qualities.end());
+      */
 
       #if DEBUG
-        for(auto q:qualities) statistics_qual_after[q-33]++;
+        //for(auto q:qualities) statistics_qual_after[q-33]++;
+        for(int i=LONGEST-nbases; i<LONGEST; i++) statistics_qual_after[q-33]++;
       #endif
 
       //write output FASTQ file
+      char *buf = NULL;
     
       if(not ignore_headers){
+        /*
         std::getline(in, line);//get read ID from the original FASTQ (headers)
         out << line << endl; //headers
+        */
+        ssize_t size = getline(&buf, &len, f_in); // @'s line
+        fwrite(buf, sizeof(char), size, f_out);
       }
-      else out<<"@"<<endl; //default header
+      else{
+        /*
+        out<<"@"<<endl; //default header
+        */
+        fwrite(header, sizeof(char), 2, f_out);
+      }
 
+      /*
       out << bases << endl; //bases
       out << "+" << endl;
       out << qualities << endl; //qs
-      
+      */
+
       //read input FASTQ file
+      /*
       std::getline(in, line);//bases
       std::getline(in, line);//+
       std::getline(in, line);//qs
+      */
+
+      getline(&buf, &len, f_in); // bases 
+      getline(&buf, &len, f_in); // +'s line
+      getline(&buf, &len, f_in); // @'s line
+
+      fwrite(&BASES[nbases], sizeof(char), LONGEST-nbases, f_out);
+      fwrite(plus, sizeof(char), 2, f_out);
+      fwrite(&QS[nbases], sizeof(char), LONGEST-nbases, f_out);
+
+      free(buf);
       
       #if DEBUG
         for(auto q:line) statistics_qual_before[q-33]++;
       #endif
     }
 
+  fclose(f_in);
+  fclose(f_out);
   #else  
 
     for(uint64_t i = 0;i < (revc?N/2:N);++i){//for each read (if revc=true, only first half of reads)
