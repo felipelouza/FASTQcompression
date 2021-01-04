@@ -24,6 +24,7 @@
 #include "include.hpp"
 #include "dna_string_n.hpp"
 #include "dna_bwt_n.hpp"
+#include "../external/rankbv/rankbv.hpp"
 
 #ifndef DEBUG
   #define DEBUG 0
@@ -33,7 +34,7 @@
   #define REVC 0
 #endif
 
-#define LONGEST 10000 #longest read
+#define LONGEST 10000 //longest read
 
 /*uint64_t min_cluster_length = 1000;
 uint64_t num_close_freq = 0;

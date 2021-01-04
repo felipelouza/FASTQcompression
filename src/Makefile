@@ -14,6 +14,11 @@ CXX_FLAGS=$(MY_CXX_FLAGS) $(MY_CXX_OPT_FLAGS) $(LFLAGS) $(MODE) $(BIN)
 
 ####
 
+LIBOBJ = \
+	../external/rankbv/rankbv.o
+
+####
+
 INPUT=../../dataset/reads.100.fastq
 OUTPUT=../../output.fq
 
@@ -22,11 +27,14 @@ OUTPUT=../../output.fq
 
 all: main 
 
-main: fq_compression.cpp  
-	$(MY_CXX) fq_compression.cpp -o fq_compression  $(CXX_FLAGS) 
+%.o:%.cpp
+	$(MY_CXX) -c -o $@ $< 
+
+main: fq_compression.cpp ${LIBOBJ} 
+	$(MY_CXX) fq_compression.cpp -o fq_compression ${LIBOBJ} $(CXX_FLAGS) 
 
 clean:
-	rm -f fq_compression 
+	rm -f fq_compression external/rankbv/*.o 
 
 run:
 	./fq_compression -e $(INPUT).bwt -q $(INPUT).bwt.qs -f $(INPUT).bwt -o $(OUTPUT) 
