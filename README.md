@@ -13,7 +13,7 @@ make
 Given a string collection in reads.fastq:
 
 ```sh
-python3 FASTQCompression.py dataset/reads.fastq -o results/output --all
+python3 FASTQCompression.py dataset/reads.fastq -o results/output
 ```
 
 ```sh
