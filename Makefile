@@ -5,3 +5,4 @@ all:
 clean:
 	make clean -C src 
 	make clean -C external/gsufsort/
+	rm -f external/rankbv/*.o

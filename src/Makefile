@@ -28,13 +28,13 @@ OUTPUT=../../output.fq
 all: main 
 
 %.o:%.cpp
-	$(MY_CXX) -c -o $@ $< 
+	$(MY_CXX) -c -o $@ $<  $(CXX_FLAGS) 
 
 main: fq_compression.cpp ${LIBOBJ} 
 	$(MY_CXX) fq_compression.cpp -o fq_compression ${LIBOBJ} $(CXX_FLAGS) 
 
 clean:
-	rm -f fq_compression external/rankbv/*.o 
+	rm -f fq_compression 
 
 run:
 	./fq_compression -e $(INPUT).bwt -q $(INPUT).bwt.qs -f $(INPUT).bwt -o $(OUTPUT) 

@@ -3,7 +3,7 @@
 #include "string.h"
 
 
-inline void rankbv_setbit(rankbv_t* rbv,size_t i)
+void rankbv_setbit(rankbv_t* rbv,size_t i)
 {
     size_t bs = i/rbv->s;
     size_t block = bs + i/RBVW + 1;
@@ -323,8 +323,8 @@ rankbv_save(rankbv_t* rbv,FILE* f)
     fwrite(&bytes,sizeof(uint64_t),1,f);
     fwrite(rbv,sizeof(rankbv_t),1,f);
     fwrite(rbv->S,sizeof(uint64_t),num_sblocks,f);
-    uint64_t* B = rankbv_getdata(rbv);
-    fwrite(B,sizeof(uint64_t),ints,f);
+    uint64_t* Bit = rankbv_getdata(rbv);
+    fwrite(Bit,sizeof(uint64_t),ints,f);
 
     return bytes+sizeof(size_t);
 }

@@ -93,7 +93,9 @@ char TERM = '#';
 
 string QUAL;//string of length |BWT| that contains the base qualities, for each BWT position
 //string BWT_MOD;//string of length |BWT| that duplicates the BWT.
-char *BWT_MOD;
+//char *BWT_MOD;
+string BWT_MOD;
+rankbv_t* rbv = NULL;
 
 //vector<bool> LCP_minima;//bitvector that stores the LCP minima
 //vector<bool> LCP_threshold;//bitvector that stores LCP values that exceed the threshold: >= K
@@ -545,10 +547,18 @@ void process_cluster(uint64_t begin, uint64_t i){
       if(bwt[j] != TERM){
         if((freqs[ord(bwt[j])]) < rare_threshold){	
           if((int)(QUAL[j]-33) < quality_threshold){
-            BWT_MOD[j] = mostfreq;
+            //BWT_MOD[j] = mostfreq;
+            //FELIPE
+            BWT_MOD.push_back(mostfreq);
+            rankbv_setbit(rbv,j);
             modified++;
           }
         }
+        //FELIPE
+        /*
+        if(newqs != QUAL[j]) cout<<QUAL[j]<<" --> "<<newqs<<endl;
+        else cout<<QUAL[j]<<endl;
+        */
         QUAL[j] = newqs;
       }
     }
@@ -616,12 +626,19 @@ void process_cluster(uint64_t begin, uint64_t i){
             }
 
             if(count == 1){
-              BWT_MOD[j] = new_base;
+              //FELIPE
+              rankbv_setbit(rbv,j);
+              //BWT_MOD[j] = new_base;
+              BWT_MOD.push_back(new_base);
               modified++;
             }
           }
         }
-
+        //FELIPE
+        /*
+        if(newqs != QUAL[j]) cout<<QUAL[j]<<" --> "<<newqs<<endl;
+        else cout<<QUAL[j]<<endl;
+        */
         QUAL[j] = newqs;
       }
     }
@@ -681,9 +698,12 @@ void run(){
     }
     */
     //The BWT is already in memory
+    /*
     BWT_MOD = new char[n];
     for(uint64_t i=0; i<n; i++) 
       BWT_MOD[i]=bwt[i];
+    */
+    rbv = rankbv_create(n,2);
   }
   
   uint64_t begin = 0;//begin position
@@ -740,6 +760,10 @@ void run(){
   }
   
   cout << endl << "Done." << endl;
+
+  //FELIPE
+  rankbv_build(rbv);
+  //cout << "rank = "<<rankbv_rank1(rbv,n)<<endl;
   
   //print clusters statistics (i.e. number of bases that fall inside each cluster of a fixed size)
   #if DEBUG
@@ -803,7 +827,9 @@ void invert(){
       while(bwt[j] != TERM){
           
         //bases.push_back(BWT_MOD[j]);
-        BASES[--nbases] = BWT_MOD[j];
+        //BASES[--nbases] = BWT_MOD[j];
+        BASES[--nbases] = (rankbv_access(rbv, j)==1)?(BWT_MOD[rankbv_rank1(rbv,j)-1]):(bwt[j]);
+
         #if B==1
           QUAL[j] = illumina_8_level_binning((int)QUAL[j]-33);
         #endif
@@ -872,7 +898,8 @@ void invert(){
   fclose(f_in);
   fclose(f_out);
   #else  
-
+    //TODO
+    /*
     for(uint64_t i = 0;i < (revc?N/2:N);++i){//for each read (if revc=true, only first half of reads)
          
       string bases;
@@ -912,7 +939,7 @@ void invert(){
           exit(0);
         }
         
-        /* DEFINE HOW TO COMBINE */
+        // DEFINE HOW TO COMBINE 
         for(int k=0;k<bases.length();++k){
           if (qualities[k] == qualities_rc[k]){
             if(bases[k] != bases_rc[k]){
@@ -950,6 +977,7 @@ void invert(){
         for(auto q:line) statistics_qual_before[q-33]++;
       #endif
     }//end for      
+    */
   #endif
 }
 /*
@@ -999,7 +1027,8 @@ void print_info(){
     
     cout << "ID\tposition\toriginal\tmodified\tmodified.quality\tLCP>=K\tminimum?" << endl;
     for(uint64_t i=0;i<bwt.size();++i){
-      cout << read_info[i] << "\t" << bwt[i] << "\t" << BWT_MOD[i] << "\t" << QUAL[i] << "\t" << (LCP_threshold[i]?"+\t":"\t") << (LCP_minima[i]?"*":"") << endl;
+      //cout << read_info[i] << "\t" << bwt[i] << "\t" << BWT_MOD[i] << "\t" << QUAL[i] << "\t" << (LCP_threshold[i]?"+\t":"\t") << (LCP_minima[i]?"*":"") << endl;
+      cout << read_info[i] << "\t" << bwt[i] << "\t" << QUAL[i] << "\t" << (LCP_threshold[i]?"+\t":"\t") << (LCP_minima[i]?"*":"") << endl;
     }
       
   }
@@ -1122,6 +1151,7 @@ int main(int argc, char** argv){
   invert();
   cout << "end invert" << endl;
 
+
   cout << clusters_size << " (" << (double(100*clusters_size)/bwt.size()) <<  "%) bases fall inside a cluster" << endl;
   cout << "done. " << modified << "/" << bwt.size() << " bases have been modified (" << 100*double(modified)/bwt.size() << "% of all bases and " <<
     100*double(modified)/clusters_size << "% of bases inside clusters)." << endl;
@@ -1161,5 +1191,9 @@ int main(int argc, char** argv){
 
   delete[] LCP_threshold;
   delete[] LCP_minima;
-  delete[] BWT_MOD;
+  //delete[] BWT_MOD;
+
+  rankbv_free(rbv);
+
+return 0;
 }
