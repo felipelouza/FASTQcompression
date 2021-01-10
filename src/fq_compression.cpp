@@ -97,10 +97,10 @@ string QUAL;//string of length |BWT| that contains the base qualities, for each 
 string BWT_MOD;
 rankbv_t* rbv = NULL;
 
-//vector<bool> LCP_minima;//bitvector that stores the LCP minima
-//vector<bool> LCP_threshold;//bitvector that stores LCP values that exceed the threshold: >= K
-bool *LCP_minima;//bitvector that stores the LCP minima
-bool *LCP_threshold;//bitvector that stores LCP values that exceed the threshold: >= K
+vector<bool> LCP_minima;//bitvector that stores the LCP minima
+vector<bool> LCP_threshold;//bitvector that stores LCP values that exceed the threshold: >= K
+//bool *LCP_minima;//bitvector that stores the LCP minima
+//bool *LCP_threshold;//bitvector that stores LCP values that exceed the threshold: >= K
 
 dna_bwt_n_t bwt;//the BWT data structure
 
@@ -222,8 +222,8 @@ void detect_minima(){
   /*
    * LCP_threshold[i] == 1 iff LCP[i] >= K
    */
-  //LCP_threshold = vector<bool>(n,false);
-  LCP_threshold = new bool[n]{false};
+  LCP_threshold = vector<bool>(n,false);
+  //LCP_threshold = new bool[n]{false};
   
   uint64_t leaves = 0;//number of visited leaves
   uint64_t max_stack = 0;
@@ -271,8 +271,8 @@ void detect_minima(){
   
   cout << "Phase 3/4: computing LCP minima." << endl;
   
-  //LCP_minima = vector<bool>(n,false);
-  LCP_minima = new bool[n]{false};
+  LCP_minima = vector<bool>(n,false);
+  //LCP_minima = new bool[n]{false};
   
   auto TMP_NODES = vector<sa_node_n>(5);
   
@@ -1189,8 +1189,8 @@ int main(int argc, char** argv){
   if(debug)
     print_info();
 
-  delete[] LCP_threshold;
-  delete[] LCP_minima;
+  //delete[] LCP_minima;
+  //delete[] LCP_threshold;
   //delete[] BWT_MOD;
 
   rankbv_free(rbv);

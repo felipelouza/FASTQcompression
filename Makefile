@@ -6,3 +6,4 @@ clean:
 	make clean -C src 
 	make clean -C external/gsufsort/
 	rm -f external/rankbv/*.o
+	rm -f external/malloc_count/*.o

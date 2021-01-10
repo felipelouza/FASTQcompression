@@ -15,7 +15,8 @@ CXX_FLAGS=$(MY_CXX_FLAGS) $(MY_CXX_OPT_FLAGS) $(LFLAGS) $(MODE) $(BIN)
 ####
 
 LIBOBJ = \
-	../external/rankbv/rankbv.o
+	../external/rankbv/rankbv.o\
+	../external/malloc_count/malloc_count.o
 
 ####
 
