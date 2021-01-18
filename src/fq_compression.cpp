@@ -334,15 +334,15 @@ void detect_minima(){
 //This function modifies a Quality Score to be Illumina 8 Level Binning compliant
 int illumina_8_level_binning(int newqs){
 
-  if (newqs >= 2 && newqs <= 9)  newqs = 6;
-  else if (newqs <= 19) newqs = 15;
-  else if (newqs <= 24) newqs = 22;
-  else if (newqs <= 29) newqs = 27;
-  else if (newqs <= 34) newqs = 33;
-  else if (newqs <= 39) newqs = 37;
-  else if (newqs >= 40) newqs = 40;
+  if (newqs >= 40) newqs = 40;
+  else if (newqs >= 35) newqs = 37;
+  else if (newqs >= 30) newqs = 33;
+  else if (newqs >= 25) newqs = 27;
+  else if (newqs >= 20) newqs = 22;
+  else if (newqs >= 10) newqs = 15;
+  else if (newqs >= 2) newqs = 6;
 
-return newqs+33;
+  return newqs+33;
 
 }
 
