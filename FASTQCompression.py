@@ -8,8 +8,8 @@ Version = "v0.1"
 Description = """Tool to compress FASTQ files
 
 For example
-  {exe} INPUT.fastq -o OUTPUT
-will produce the files OUTPUT.fq and YYY
+  {exe} INPUT.fastq -o OUTPUT -1
+will produce the files OUTPUT.fq.7z
  
 --------------------------
 Command line options:
@@ -71,8 +71,6 @@ def main():
         if(args.m3):
             print(">>> mode 3: BWT+QS+H",file=logfile) 
             print(">>> mode 3: BWT+QS+H")
-
-
 
         show_command_line(logfile)
         logfile.flush()
