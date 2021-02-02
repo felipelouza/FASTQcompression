@@ -13,43 +13,27 @@ make
 Given a string collection in reads.fastq:
 
 ```sh
-python3 FASTQCompression.py dataset/reads.fastq -o results/output
+python3 FASTQCompression.py dataset/reads.fastq -o results/output -1
 ```
 
 ```sh
 Sending logging messages to file: results/output.log
+>>> fastq-bwt version v0.1
+>>> mode 1: FASTQ
 === gsufsort ===
 external/gsufsort/gsufsort dataset/reads.fastq --bwt --qs -o results/output
-Elapsed time: 0.1522
+Elapsed time: 0.1317
 === smooth-qs ===
 src/fq_compression -e results/output.bwt -q results/output.bwt.qs -f dataset/reads.fastq -o results/output.fq
-Elapsed time: 0.5366
-=== header ===
-sed -n 1~4p dataset/reads.fastq > results/output.h
-Elapsed time: 0.0121
-=== gsufsort ===
-external/gsufsort/gsufsort results/output.fq --bwt --qs -o results/output.fq
-Elapsed time: 0.1224
+Elapsed time: 0.3298
 === compression ===
 7z a -mm=PPMd results/output.fq.7z results/output.fq
-7z a -mm=PPMd results/output.h.7z results/output.h
-7z a -mm=PPMd results/output.fq.bwt.7z results/output.fq.bwt
-7z a -mm=PPMd results/output.fq.bwt.qs.7z results/output.fq.bwt.qs
-Elapsed time: 0.3376
+Elapsed time: 0.1232
 === results ===
 Original:	2.44 MB
-Compressed:	0.91 MB
-Ratio = 0.37
-=== gzip ===
-gzip -9 -k -f dataset/reads.fastq
-Compressed:	0.59 MB
-Ratio = 0.24
-Elapsed time: 0.4503
-=== 7z ===
-7z a -mm=PPMd dataset/reads.fastq.7z dataset/reads.fastq
-Compressed:	0.43 MB
-Ratio = 0.18
-Elapsed time: 0.1437
+==
+Compressed:	0.40 MB
+Ratio = 0.17
 ```
 
 

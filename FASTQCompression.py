@@ -5,11 +5,11 @@ import sys, time, argparse, subprocess, os.path, shutil, struct
 Version = "v0.1"
 
 
-Description = """Tool to compresse FASQ files
+Description = """Tool to compress FASTQ files
 
 For example
-  {exe} INPUT.fastq
-will produce the output files XXX and YYY
+  {exe} INPUT.fastq -o OUTPUT
+will produce the files OUTPUT.fq and YYY
  
 --------------------------
 Command line options:
@@ -61,6 +61,19 @@ def main():
         ##
 
         print(">>> fastq-bwt version " + Version,file=logfile)
+        print(">>> fastq-bwt version " + Version)
+        if(args.m1):
+            print(">>> mode 1: FASTQ",file=logfile) 
+            print(">>> mode 1: FASTQ") 
+        if(args.m2):
+            print(">>> mode 2: BWT+QS",file=logfile) 
+            print(">>> mode 2: BWT+QS")
+        if(args.m3):
+            print(">>> mode 3: BWT+QS+H",file=logfile) 
+            print(">>> mode 3: BWT+QS+H")
+
+
+
         show_command_line(logfile)
         logfile.flush()
 
