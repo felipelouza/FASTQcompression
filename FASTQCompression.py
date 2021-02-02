@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-import sys, time, argparse, subprocess, os.path, shutil, struct
+import sys, time, argparse, subprocess, os.path, shutil, struct, pathlib
 
 Version = "v0.1"
 
@@ -270,8 +270,13 @@ def zip7(args, logfile, logfile_name):
 
 # check correctness of number of input file and define basename for output
 def check_input(args):
-    if len(args.out)==0:       # specify basename for input files gap+merge
+
+    if len(args.out)==0:
         args.basename = args.input[0]
+    elif args.out[-1]=="/": 
+        pathlib.Path(args.out).mkdir(parents=True, exist_ok=True) 
+        tmp = args.input[0].split("/")
+        args.basename = args.out+tmp[-1]
     else:
         args.basename = args.out
     return True
