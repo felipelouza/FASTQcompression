@@ -3,7 +3,7 @@
 ## install
 
 ```sh
-git clone --recursive https://github.com/giovannarosone/FASTQcompression.git 
+git clone --recursive https://github.com/felipelouza/FASTQcompression.git 
 cd FASTQcompression
 make
 ```
