@@ -39,7 +39,7 @@ def main():
     parser.add_argument('-1', '--m1', help='mode 1: FASTQ', action='store_true',default=True)
     parser.add_argument('-2', '--m2', help='mode 2: BWT+QS', action='store_true')
     parser.add_argument('-3', '--m3', help='mode 3: BWT+QS+H', action='store_true')
-    parser.add_argument('--no_headers',  help='ignores the headers', action='store_true', default=False)
+    parser.add_argument('--headers',  help='include the headers', action='store_true', default=False)
     parser.add_argument('--others',   help='run all competitors',action='store_true')
     parser.add_argument('-v',         help='verbose: extra info in the log file',action='store_true')
     args = parser.parse_args()
@@ -55,9 +55,9 @@ def main():
         
         ##
         if(args.m2): args.m1 = args.m3 = False
-        if(args.m3): args.m1 = args.m2 = False
-        ##
-        if(not args.m1): args.no_headers = True
+        if(args.m3): 
+          args.m1 = args.m2 = False
+          args.headers = True
         ##
 
         print(">>> fastq-bwt version " + Version,file=logfile)
@@ -90,24 +90,24 @@ def main():
             print("Exiting after step 1 as requested")
             return
     
-        # --- step2: smooth BWT and QS sequences 
-        start = time.time()
-        if(step2(args, logfile, logfile_name)!=True):
-            sys.exit(1)
-        print("Elapsed time: {0:.4f}".format(time.time()-start))
-        if args.step2:
-            print("Exiting after step 2 as requested")
-            return
-
-        if(args.m3):
-            # --- step3: extract headers
+        if(args.headers and not args.m2):
+            # --- step2: extract headers
             start = time.time()
-            if(step3(args, logfile, logfile_name)!=True):
+            if(step2(args, logfile, logfile_name)!=True):
                 sys.exit(1)
             print("Elapsed time: {0:.4f}".format(time.time()-start))
-            if args.step3:
-                print("Exiting after step 3 as requested")
+            if args.step2:
+                print("Exiting after step 2 as requested")
                 return
+              
+        # --- step3: smooth BWT and QS sequences 
+        start = time.time()
+        if(step3(args, logfile, logfile_name)!=True):
+            sys.exit(1)
+        print("Elapsed time: {0:.4f}".format(time.time()-start))
+        if args.step3:
+            print("Exiting after step 3 as requested")
+            return
 
         # --- step4: compute BWT+QS
         if(args.m2 or args.m3):
@@ -186,29 +186,9 @@ def step1(args, logfile, logfile_name):
     args.tmp.append(args.basename+".bwt.qs")
     return execute_command(command, logfile, logfile_name)
 
-def step2(args, logfile, logfile_name):
-    #TODO: check
-    if args.original:
-        print("--- Step 2 ---", file=logfile); logfile.flush()
-        command = "cp "+ args.input[0] +" "+args.out+".fq" 
-        print(command)
-        os.system(command)
-    else:
-        print("--- Step 2 ---", file=logfile); logfile.flush()
-        exe = os.path.join(args.dir, smooth_exe)
-        options = "-e " + args.tmp[0] + " -q " + args.tmp[1] + " -f " + args.input[0]+" -o "+args.out+".fq"
-        if(args.no_headers): #ignore headers
-            options+=" -H"
-        command = "{exe} {opt}".format(exe=exe, opt=options)
-        print("=== smooth-qs ===")
-        print(command)
-        if(args.m1): args.stream.append(args.out+".fq")
-        return execute_command(command, logfile, logfile_name)
-    return True
-
 ##
-def step3(args, logfile, logfile_name):
-    print("--- Step 3 ---", file=logfile); logfile.flush()
+def step2(args, logfile, logfile_name):
+    print("--- Step 2 ---", file=logfile); logfile.flush()
     ##
     exe = header_split
     ifile = args.input[0]
@@ -217,7 +197,28 @@ def step3(args, logfile, logfile_name):
     print("=== header ===")
     print(command)
     os.system(command)
-    args.stream.append(args.basename+".h")
+    if (args.m3): args.stream.append(args.out+".h")
+    return True
+##
+
+def step3(args, logfile, logfile_name):
+    #TODO: check
+    if args.original:
+        print("--- Step 3 ---", file=logfile); logfile.flush()
+        command = "cp "+ args.input[0] +" "+args.out+".fq" 
+        print(command)
+        os.system(command)
+    else:
+        print("--- Step 3 ---", file=logfile); logfile.flush()
+        exe = os.path.join(args.dir, smooth_exe)
+        options = "-e " + args.tmp[0] + " -q " + args.tmp[1] + " -o "+args.out+".fq"
+        if(args.headers and args.m1): #ignore headers
+            options+=" -H"+args.out+".h"
+        command = "{exe} {opt}".format(exe=exe, opt=options)
+        print("=== smooth-qs ===")
+        print(command)
+        if(args.m1): args.stream.append(args.out+".fq")
+        return execute_command(command, logfile, logfile_name)
     return True
 ##
 
