@@ -382,6 +382,27 @@ double sum_err = 0;
 return qs+33;
 }
 
+//if mod == 0, modBasesSmoothQS just substitutes QS symbols
+void modBasesSmoothQS(bool mod, uint64_t begin, uint64_t end, char newSymb, char newqs){
+    for(uint64_t j = begin; j <= end; ++j)
+    {
+        if( bwt[j] != TERM ){
+            if (mod and (bwt[j] != newSymb) and (QUAL[j] < quality_threshold + 33) )
+            {
+                #if DEBUG
+                    cout << "j: " << j << "\tBWT: " << bwt[j] << "\tBWT_MOD: " << newSymb << endl;
+                #endif
+                //FELIPE
+                BWT_MOD.push_back(newSymb);
+                rankbv_setbit(rbv,j);
+                
+                modified++;
+            }
+            QUAL[j] = newqs;
+        }
+    }//end-for
+}
+
 /*
  *
  * START PROCEDURE TO ANALYZE A CLUSTER [begin, i]
@@ -401,8 +422,7 @@ void process_cluster(uint64_t begin, uint64_t i){
   if(size < m) return;
 
   char newqs;
-  uint64_t maxfreq = 0;
-  char mostfreq;
+
   uint64_t freqs[5]{0};
  
   
@@ -449,103 +469,151 @@ void process_cluster(uint64_t begin, uint64_t i){
     if(verbose) cout << "****\n";
   #endif
 
-  //Frequency of the bases in percentage	
-  freqs[0] = (100*freqs[0])/(base_num); //'A'
-  freqs[1] = (100*freqs[1])/(base_num); //'C'
-  freqs[2] = (100*freqs[2])/(base_num); //'G'
-  freqs[3] = (100*freqs[3])/(base_num); //'T'
-  freqs[4] = (100*freqs[4])/(base_num); //'N'
-
-  /*Through these variables we obtain the most frequent base in the cluster and its frequency */
-  //mostfreq = std::max_element(freqs.begin(),freqs.end()) - freqs.begin();
-  //maxfreq = *std::max_element(freqs.begin(), freqs.end());
-
-  mostfreq = 0; //'A'
-  if(freqs[1]>freqs[mostfreq]) mostfreq = 1;
-  if(freqs[2]>freqs[mostfreq]) mostfreq = 2;
-  if(freqs[3]>freqs[mostfreq]) mostfreq = 3;
-  if(freqs[4]>freqs[mostfreq]) mostfreq = 4;
-
-  maxfreq = freqs[mostfreq]; //freqs['A']
-  mostfreq = dna(mostfreq);
-
-  //Check if there's a base which frequence is similar to maxfreq and store it in a vector 
-  /*
-  vector<char> high_freqs;
-  if(freqs['A'] >= maxfreq -10) high_freqs.push_back('A');
-  if(freqs['C'] >= maxfreq -10) high_freqs.push_back('C'); 
-  if(freqs['G'] >= maxfreq -10) high_freqs.push_back('G');
-  if(freqs['T'] >= maxfreq -10) high_freqs.push_back('T');
-  if(freqs['N'] >= maxfreq -10) high_freqs.push_back('N');
-  */
-  bool high_freqs[5]{false};
-  int high_freqs_size=0;
-  for(int i=0; i<5; i++){ //'A', 'C', 'G', 'T', 'N'
-    if(freqs[i] >= maxfreq -10){
-      high_freqs[i] = true; //high_freqs.push_back('A');
-      high_freqs_size++;
-    }
+  //a frequent symbol has frequency percentage greater than rare_threshold
+  vector < char > FreqSymb;
+  #if DEBUG
+     cout << "Symbol\t perc" << endl;
+  #endif
+    
+  for(int i=0; i<5; i++){
+      if(freqs[i]>0){
+         uchar perc = (100*freqs[i])/(base_num); //integer division
+         #if DEBUG
+             cout << dna(i) << "\t" << (int)perc << endl;
+	 #endif
+         if( perc >= rare_threshold )
+            FreqSymb.push_back(dna(i));
+            
+         //reset freqs
+         freqs[i]=0;
+     }
   }
+  #if DEBUG
+      cout << "FreqSymb.size: " << FreqSymb.size() << "\tbase_num: " << base_num << endl;	
+  #endif
 
-
-  //If there are less than 5 bases and there's more than a base with high frequency we haven't enough information
-  //to do corrections
-  //if(high_freqs.size() > 1 && base_num < 5){
-  if(high_freqs_size > 1 && base_num < 5){
-    /*
-    freqs['A'] = 0;
-    freqs['C'] = 0;
-    freqs['G'] = 0;
-    freqs['T'] = 0;
-    freqs['N'] = 0;
-    high_freqs.clear();
-    for(int i=0; i<5; i++){ //'A', 'C', 'G', 'T', 'N'
-      freqs[i]=0;
-      high_freqs[i]=false;
-    }
-    */
-    return;
+  //We expect  to  have  no  more  than  two  frequent  symbols  in  any  cluster
+  assert(FreqSymb.size() < 3 );
+	
+  /* Noise reduction and QS smoothing */
+  if (FreqSymb.size() == 0)
+  { //--> no information to modify bases --> perform only QS smoothing
+      modBasesSmoothQS(0,start,end,'*',newqs);
   }
-
-  /*
-  * If there's only one base with high frequency, in this cycle we modify the values of QS and, 
-  * if the base is less frequent than rare_threshold and its QS is minor then quality_threshold, also the value stored in BWT_MOD
-  */
-  //if(high_freqs.size() == 1){
-  if(high_freqs_size == 1){
-    for(uint64_t j = start; j <= end; ++j){
-      if(bwt[j] != TERM){
-        if((freqs[ord(bwt[j])]) < rare_threshold){	
-          if((int)(QUAL[j]-33) < quality_threshold){
-            //BWT_MOD[j] = mostfreq;
-            //FELIPE
-            BWT_MOD.push_back(mostfreq);
-            rankbv_setbit(rbv,j);
-            modified++;
-          }
+  else if(FreqSymb.size()==1)
+  {    //There is a unique most frequent symbol --> modify bases according to it 
+     if( (FreqSymb[0] == 'N') ) //it is 'N' --> perform only QS smoothing
+          modBasesSmoothQS(0,start,end,'*',newqs);
+     else
+          modBasesSmoothQS(1,start,end,FreqSymb[0],newqs);
+  }
+  else if(base_num < 5)
+  {    //There are less than 5 bases in the cluster and FreqSymb.size() == 2 --> no information to modify bases
+     modBasesSmoothQS(0,start,end,'*',newqs);
+  }
+  else
+  {  //FreqSymb.size() == 2 && base_num >= 5
+	
+	//one of them is 'N' --> modify according to the other
+        if (FreqSymb[0] == 'N') {
+            //FreqSymb[1] cannot be TERM neither 'N'
+            modBasesSmoothQS(1,start,end,FreqSymb[1],newqs);
+            
         }
-        //FELIPE
-        /*
-        if(newqs != QUAL[j]) cout<<QUAL[j]<<" --> "<<newqs<<endl;
-        else cout<<QUAL[j]<<endl;
-        */
-        QUAL[j] = newqs;
-      }
-    }
-  }
-  //Otherwise we have to decide between more bases. 
-  else{
+        else if (FreqSymb[1] == 'N'){
+            //FreqSymb[0] cannot be TERM neither 'N'
+            modBasesSmoothQS(1,start,end,FreqSymb[0],newqs);
+            
+        }
+        else //(FreqSymb[0] != TERM) and (FreqSymb[0] != 'N') and (FreqSymb[1] != TERM) and (FreqSymb[1] != 'N')
+        {  
+	     //perform modification according to the two most frequent bases
+	     //1 - Find the symbol preceding FreqSymb[0] (resp. FreqSymb[1])
+	     char c, symbPrec_0, symbPrec_1;
+	     uint64_t freqs_0[6]{0};
+	     uint64_t freqs_1[6]{0};
 
+	     for(uint64_t j = start; j <= end; ++j){
+		 if(bwt[j] == FreqSymb[0])){
+		     c=bwt[bwt.LF(j)]; //bwt[bwt.LF(j)] can be TERM
+		     if(c==TERM)
+			 freqs_0[5]++;
+		     else
+			 freqs_0[ord(bwt[bwt.LF(j)])]++; //ord(c)-->0,1,2,3,4
+		 }
+		 else if(bwt[j] == FreqSymb[1])){
+		     c=bwt[bwt.LF(j)]; //bwt[bwt.LF(j)] can be TERM
+		     if(c==TERM)
+			 freqs_1[5]++;
+		     else
+			 freqs_1[ord(bwt[bwt.LF(j)])]++; //ord(c)-->0,1,2,3,4
+		 }
+	     }     
+
+	     int index = (std::max_element(freq_0.begin(),freq_0.end()) - freq_0.begin());
+	     if (index == 5)	  
+		symbPrec_0 = TERM;
+	     else
+		symbPrec_0 = dna(index);
+
+	     index = (std::max_element(freq_1.begin(),freq_1.end()) - freq_1.begin());
+	     if (index == 5)	  
+		symbPrec_1 = TERM;
+	     else
+		symbPrec_1 = dna(index);
+
+	     //2 - Modify a base with low QS iff the symbol preceding it is equal either to symbPrec_0 OR symbPrec_1 (not both)
+
+	     if(symbPrec_0 == symbPrec_1 || symbPrec_0 == 'N' || symbPrec_1 == 'N')
+	     {   //--> no information to modify bases
+		 modBasesSmoothQS(0,start,end,'*',newqs);
+	     }
+	     else
+	     {   //symbPrec_0 != symbPrec_1 and symbPrec_0 != 'N' and symbPrec_1 != 'N')
+
+		 for(uint64_t j = start; j <= end; ++j){
+		     if(bwt[j] != TERM){
+			if ( bwt[j]!= FreqSymb[0] and bwt[j]!= FreqSymb[1] and QUAL[j] < quality_threshold+33 )
+			{
+			    //Check if symbol preceding bwt[j] is equal either to symbPrec_0 or to symbPrec_1
+			    c=bwt[bwt.LF(j)];
+			    if(c==symbPrec_0){
+			       #if DEBUG
+				  cout << "j: " << j << "\tBWT: " << bwt[j] << "\tBWT_MOD: " << FreqSymb[0] << endl;
+			       #endif
+			       //FELIPE
+			       rankbv_setbit(rbv,j);
+			       BWT_MOD.push_back(FreqSymb[0]);
+			       modified++;
+			     }
+			     else if(c==symbPrec_1){
+			       #if DEBUG
+				   cout << "j: " << j << "\tBWT: " << bwt[j] << "\tBWT_MOD: " << FreqSymb[1] << endl;
+			       #endif
+			       //FELIPE
+			       rankbv_setbit(rbv,j);
+			       BWT_MOD.push_back(FreqSymb[1]);
+			       modified++;
+			     }
+			     //else --> no information to modify bases
+
+			 }//end-if modify bases
+
+			 QUAL[j]=newqs; //smoothing QS
+
+		     }//end-if (bwt[j] != TERM)
+
+		  }//end-for
+
+		}//end else
+	}//end if-else
+    }//end if-else FreqSymb.size() == 2 && base_num >= 5
+	  
     //To do so we use the backward search to find which character in EBWT precedes each base in the cluster.
     //vector<vector<uint64_t>> LF_vect(256, vector<uint64_t>(256,0));
     uint64_t LF_vect2[255][255]{0};
 
-    for(uint64_t j = start; j <= end; ++j){
-      if(bwt[j] != TERM){
-        //LF_vect[bwt[j]][bwt[bwt.LF(j)]]++;
-        LF_vect2[bwt[j]][bwt[bwt.LF(j)]]++; //bwt[bwt.LF(j)] can be '#'
-      }
-    }
+    
 
     //pre-compute max's
     char LF_max[5]{0};
