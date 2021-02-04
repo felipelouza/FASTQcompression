@@ -109,7 +109,7 @@ vector<bool> LCP_threshold;//bitvector that stores LCP values that exceed the th
 dna_bwt_n_t bwt;//the BWT data structure
 
 float rare_threshold = 40;//Thresholds used to determinate which bases to discard from the cluster
-float quality_threshold = 20; 
+int quality_threshold = 20; 
 
 char DNA[5] = {'A','C','G','T','N'};
 #define dna(i) (DNA[i])
@@ -477,7 +477,7 @@ void process_cluster(uint64_t begin, uint64_t i){
     
   for(int i=0; i<5; i++){
       if(freqs[i]>0){
-         uchar perc = (100*freqs[i])/(base_num); //integer division
+         unsigned char perc = (100*freqs[i])/(base_num); //integer division
          #if DEBUG
              cout << dna(i) << "\t" << (int)perc << endl;
 	 #endif
@@ -534,14 +534,14 @@ void process_cluster(uint64_t begin, uint64_t i){
 	     uint64_t freqs_1[6]{0};
 
 	     for(uint64_t j = start; j <= end; ++j){
-		 if(bwt[j] == FreqSymb[0])){
+		 if(bwt[j] == FreqSymb[0]){
 		     c=bwt[bwt.LF(j)]; //bwt[bwt.LF(j)] can be TERM
 		     if(c==TERM)
 			 freqs_0[5]++;
 		     else
 			 freqs_0[ord(bwt[bwt.LF(j)])]++; //ord(c)-->0,1,2,3,4
 		 }
-		 else if(bwt[j] == FreqSymb[1])){
+		 else if(bwt[j] == FreqSymb[1]){
 		     c=bwt[bwt.LF(j)]; //bwt[bwt.LF(j)] can be TERM
 		     if(c==TERM)
 			 freqs_1[5]++;
@@ -550,13 +550,13 @@ void process_cluster(uint64_t begin, uint64_t i){
 		 }
 	     }     
 
-	     int index = (std::max_element(freq_0.begin(),freq_0.end()) - freq_0.begin());
+	     int index = (std::max_element(freqs_0.begin(),freqs_0.end()) - freqs_0.begin());
 	     if (index == 5)	  
 		symbPrec_0 = TERM;
 	     else
 		symbPrec_0 = dna(index);
 
-	     index = (std::max_element(freq_1.begin(),freq_1.end()) - freq_1.begin());
+	     index = (std::max_element(freqs_1.begin(),freqs_1.end()) - freqs_1.begin());
 	     if (index == 5)	  
 		symbPrec_1 = TERM;
 	     else
@@ -982,19 +982,6 @@ void print_info(){
   }
     
 }
-//load read IDs
-void load_IDs(){
-    
-  ifstream in(original_fastq);
-
-  string line;
-  while (getline(in, line)){
-    read_ids.push_back(line.substr(1));
-    std::getline(in, line);//bases
-    std::getline(in, line);//+
-    std::getline(in, line);//qs
-  }
-}
 
 /*
  * END PROCEDURES TO DEBUG
@@ -1108,9 +1095,6 @@ int main(int argc, char** argv){
   cout << clusters_size << " (" << (double(100*clusters_size)/bwt.size()) <<  "%) bases fall inside a cluster" << endl;
   cout << "done. " << modified << "/" << bwt.size() << " bases have been modified (" << 100*double(modified)/bwt.size() << "% of all bases and " <<
     100*double(modified)/clusters_size << "% of bases inside clusters)." << endl;
-
-  if(debug)
-    load_IDs();
 
   #if DEBUG
      cout << "Cumulative distribution of base qualities before: " << endl;
