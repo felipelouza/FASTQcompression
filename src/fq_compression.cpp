@@ -83,6 +83,10 @@ int K = 0;
 int m_def = 1;
 int m = 0;
 
+//default qs
+char default_value_def = '?';   //QS =30
+char default_value = '\0';
+
 #if REVC
   //this flag records if the input read file is divided in two halves: reads and their reverse complement
   bool revc = false;
@@ -107,8 +111,6 @@ dna_bwt_n_t bwt;//the BWT data structure
 float rare_threshold = 40;//Thresholds used to determinate which bases to discard from the cluster
 float quality_threshold = 20; 
 
-char default_value = '5';
-
 char DNA[5] = {'A','C','G','T','N'};
 #define dna(i) (DNA[i])
               //A B C D E F G H I J K L M N O P Q R S T U V W X Y
@@ -127,6 +129,7 @@ void help(){
     "-r          The second half of the reads is the reverse complement of the first half." << endl <<
     "-k <arg>    Minimum LCP required in clusters. Default: " << K_def << "." << endl <<
     "-m <arg>    Minimum length of cluster to be processed. Default: " << m_def << "." << endl <<
+    "-d <arg>    Quality score for MODE 2. Default: " << (int)default_value_def-33 << "." << endl <<
     "-t <arg>    ASCII value of terminator character. Default: " << int('#') << " (#)." << endl <<
     "-D          Print debug info for each BWT position." << endl << endl <<
     "-H          Ignores the headers." << endl <<
@@ -142,26 +145,6 @@ bool file_exists(string fileName){
   std::ifstream infile(fileName);
 
 return infile.good();
-}
-
-void def_qs(){
-
-  int min = 126;
-  int max = 33;
-
-	for(char& c : QUAL) {
-		if((int)c != 0){
-    	if((int)c > max){
-				max = (int)c;
-			}
-			if((int)c < min){
-				min = (int)c;
-			}
-		}
-	}
-
-  default_value = (char)(max+min)/2;
-
 }
 
 
@@ -351,7 +334,7 @@ int illumina_8_level_binning(int newqs){
 int avg_qs(uint64_t start, uint64_t end){
 
   int sum=0;
-  int num=0;
+  uint64_t num=0;
   
   for(uint64_t j=start; j<=end; j++){
   
@@ -367,13 +350,13 @@ int avg_qs(uint64_t start, uint64_t end){
 
 
 //This function calculates the max quality score in a cluster
-int max_qs(uint64_t start, uint64_t end){
+char max_qs(uint64_t start, uint64_t end){
 
-  int max=0;
+  char max=0;
   for(uint64_t j=start; j<=end; j++){
     if(bwt[j] != TERM){
-      if((int)QUAL[j] > max){
-        max = (int)QUAL[j];
+      if(QUAL[j] > max){
+        max = QUAL[j];
       }
     }
   }
@@ -385,7 +368,7 @@ int max_qs(uint64_t start, uint64_t end){
 int mean_error(uint64_t start, uint64_t end){
 
 double avg_err=0;
-double num = 0;
+uint64_t num = 0;
 double sum_err = 0;
 
   for(uint64_t j=start; j<=end; j++){
@@ -450,11 +433,11 @@ void process_cluster(uint64_t begin, uint64_t i){
   #if M==0
     newqs = max_qs(start,end);
   #elif M==1
-    newqs = avg_qs(start,end);
+    newqs = (char)avg_qs(start,end);
   #elif M==2
     newqs = default_value;
   #elif M==3
-    newqs = mean_error(start,end);
+    newqs = (char)mean_error(start,end);
   #else
     cout << "WARNING: unsupported choice. The process will use M=0." << endl;
     newqs = max_qs(start,end);
@@ -1048,7 +1031,7 @@ int main(int argc, char** argv){
   if(argc < 3) help();
   
   int opt;
-  while ((opt = getopt(argc, argv, "he:q:o:f:k:m:t:rDvH")) != -1){
+  while ((opt = getopt(argc, argv, "he:q:o:f:k:m:d:t:rDvH")) != -1){
     switch (opt){
       case 'h':
         help();
@@ -1070,6 +1053,9 @@ int main(int argc, char** argv){
         break;
       case 'm':
         m = atoi(optarg);
+        break;
+      case 'd':
+        default_value = atoi(optarg);
         break;
       case 't':
         TERM = atoi(optarg);
@@ -1096,6 +1082,7 @@ int main(int argc, char** argv){
 
   K = K == 0 ? K_def : K;
   m = m == 0 ? m_def : m;
+  default_value = default_value == '\0' ? default_value_def : default_value;
 
   if( input_dna.compare("")==0 or
       input_qual.compare("")==0 or
