@@ -47,10 +47,10 @@ using namespace std;
 
 string input_dna;
 string input_qual;
-string original_fastq;
+string input_titles;
 string output;
 
-bool ignore_headers = false; //ignore headers
+bool ignore_headers = true; //ignore headers
 
 /*
  * Debug mode variables: print the BWT and read names/qualities for each base
@@ -124,15 +124,14 @@ void help(){
     "-h          Print this help." << endl <<
     "-e <arg>    Input eBWT file (A,C,G,T,#) of DNA (REQUIRED)." << endl <<
     "-q <arg>    Qualities permuted according to the DNA's ebwt (REQUIRED)." << endl <<
-    "-f <arg>    Original fastq file (REQUIRED)." << endl <<
     "-o <arg>    Output fastq (REQUIRED)." << endl <<
     "-r          The second half of the reads is the reverse complement of the first half." << endl <<
     "-k <arg>    Minimum LCP required in clusters. Default: " << K_def << "." << endl <<
     "-m <arg>    Minimum length of cluster to be processed. Default: " << m_def << "." << endl <<
     "-d <arg>    Quality score for MODE 2. Default: " << (int)default_value_def-33 << "." << endl <<
-    "-t <arg>    ASCII value of terminator character. Default: " << int('#') << " (#)." << endl <<
+    "-s <arg>    ASCII value of terminator character. Default: " << int('#') << " (#)." << endl <<
     "-D          Print debug info for each BWT position." << endl << endl <<
-    "-H          Ignores the headers." << endl <<
+    "-H <arg>    Original headers from file." << endl << endl <<
     
     "\nTo run FASTQcompression, you must first build the extended Burrows-Wheeler Transform " <<
     "of the input DNA sequences and the corresponding permutation of base quality scores." << endl;
@@ -763,7 +762,7 @@ void invert(){
   ifstream in(original_fastq);
   */
 
-  FILE *f_in = fopen(original_fastq.c_str(), "r");
+  FILE *f_in = fopen(input_titles.c_str(), "r");
   if(!f_in) perror("invert");
 
   FILE *f_out = fopen(output.c_str(), "w");
@@ -850,10 +849,6 @@ void invert(){
       std::getline(in, line);//+
       std::getline(in, line);//qs
       */
-
-      getline(&buf, &len, f_in); // bases 
-      getline(&buf, &len, f_in); // +'s line
-      getline(&buf, &len, f_in); // @'s line
 
       fwrite(&BASES[nbases], sizeof(char), LONGEST-nbases, f_out);
       fwrite(plus, sizeof(char), 2, f_out);
@@ -1031,7 +1026,7 @@ int main(int argc, char** argv){
   if(argc < 3) help();
   
   int opt;
-  while ((opt = getopt(argc, argv, "he:q:o:f:k:m:d:t:rDvH")) != -1){
+  while ((opt = getopt(argc, argv, "he:q:o:k:m:d:s:rDvH:")) != -1){
     switch (opt){
       case 'h':
         help();
@@ -1045,9 +1040,6 @@ int main(int argc, char** argv){
       case 'o':
         output = string(optarg);
         break;
-      case 'f':
-        original_fastq = string(optarg);
-        break;
       case 'k':
         K = atoi(optarg);
         break;
@@ -1057,7 +1049,7 @@ int main(int argc, char** argv){
       case 'd':
         default_value = atoi(optarg);
         break;
-      case 't':
+      case 's':
         TERM = atoi(optarg);
         break;
       #if REVC
@@ -1069,7 +1061,8 @@ int main(int argc, char** argv){
         debug=true;
         break;
       case 'H':
-        ignore_headers=true;
+	input_titles = string(optarg);
+        ignore_headers=false;
         break;
       case 'v':
         verbose=true;
@@ -1086,8 +1079,7 @@ int main(int argc, char** argv){
 
   if( input_dna.compare("")==0 or
       input_qual.compare("")==0 or
-      output.compare("")==0 or
-      original_fastq.compare("")==0
+      output.compare("")==0
     ) help();
 
   if(not file_exists(input_dna)){
@@ -1100,6 +1092,10 @@ int main(int argc, char** argv){
     help();
   }
 
+  if(not ignore_headers and not file_exists(input_titles)){
+    cout << "Error: could not find file " << input_titles << "." << endl << endl;
+    help();
+  }
 
   cout << "This is FASTQcompression." << endl;
   cout << "\tK: " << K << endl;
