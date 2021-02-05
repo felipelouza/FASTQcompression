@@ -529,42 +529,41 @@ void process_cluster(uint64_t begin, uint64_t i){
         {  
 	     //perform modification according to the two most frequent bases
 	     //1 - Find the symbol preceding FreqSymb[0] (resp. FreqSymb[1])
-	     char c, symbPrec_0, symbPrec_1;
-	     uint64_t freqs_0[6]{0};
-	     uint64_t freqs_1[6]{0};
+	     char c, symbPrec_[2];
+	     uint64_t freqs_[2][6]{0};
 
 	     for(uint64_t j = start; j <= end; ++j){
 		 if(bwt[j] == FreqSymb[0]){
 		     c=bwt[bwt.LF(j)]; //bwt[bwt.LF(j)] can be TERM
 		     if(c==TERM)
-			 freqs_0[5]++;
+			 freqs_[0][5]++;
 		     else
-			 freqs_0[ord(bwt[bwt.LF(j)])]++; //ord(c)-->0,1,2,3,4
+			 freqs_[0][ord(bwt[bwt.LF(j)])]++; //ord: A->0,C->1,G->2,T->3,N->4
 		 }
 		 else if(bwt[j] == FreqSymb[1]){
 		     c=bwt[bwt.LF(j)]; //bwt[bwt.LF(j)] can be TERM
 		     if(c==TERM)
-			 freqs_1[5]++;
+			 freqs_[1][5]++;
 		     else
-			 freqs_1[ord(bwt[bwt.LF(j)])]++; //ord(c)-->0,1,2,3,4
+			 freqs_[1][ord(bwt[bwt.LF(j)])]++; //ord: A->0,C->1,G->2,T->3,N->4
 		 }
 	     }     
-
-	     int index = (std::max_element(freqs_0.begin(),freqs_0.end()) - freqs_0.begin());
-	     if (index == 5)	  
-		symbPrec_0 = TERM;
-	     else
-		symbPrec_0 = dna(index);
-
-	     index = (std::max_element(freqs_1.begin(),freqs_1.end()) - freqs_1.begin());
-	     if (index == 5)	  
-		symbPrec_1 = TERM;
-	     else
-		symbPrec_1 = dna(index);
+	     //pre-compute max's
+	     for(int i=0; i<2; i++){
+	         uint64_t index_max = 5;   //max occ. TERM
+	         symbPrec_[i] = TERM;     //prec symb is TERM
+	         if(freqs_[i][0] > freqs_[i][index_max]) index_max = 0; //max occ. A
+	         if(freqs_[i][1] > freqs_[i][index_max]) index_max = 1; //max occ. C
+	         if(freqs_[i][2] > freqs_[i][index_max]) index_max = 2; //max occ. G
+	         if(freqs_[i][4] > freqs_[i][index_max]) index_max = 4; //max occ. N
+	         if(freqs_[i][3] > freqs_[i][index_max]) index_max = 3; //max occ. T
+	         if(index_max != 5)
+	            symbPrec_[i] = dna(index_max); //dna: A<-0,C<-1,G<-2,T<-3,N<-4
+	     }
 
 	     //2 - Modify a base with low QS iff the symbol preceding it is equal either to symbPrec_0 OR symbPrec_1 (not both)
 
-	     if(symbPrec_0 == symbPrec_1 || symbPrec_0 == 'N' || symbPrec_1 == 'N')
+	     if(symbPrec_[0] == symbPrec_[1] || symbPrec_[0] == 'N' || symbPrec_[1] == 'N')
 	     {   //--> no information to modify bases
 		 modBasesSmoothQS(0,start,end,'*',newqs);
 	     }
@@ -577,7 +576,7 @@ void process_cluster(uint64_t begin, uint64_t i){
 			{
 			    //Check if symbol preceding bwt[j] is equal either to symbPrec_0 or to symbPrec_1
 			    c=bwt[bwt.LF(j)];
-			    if(c==symbPrec_0){
+			    if(c==symbPrec_[0]){
 			       #if DEBUG
 				  cout << "j: " << j << "\tBWT: " << bwt[j] << "\tBWT_MOD: " << FreqSymb[0] << endl;
 			       #endif
@@ -586,7 +585,7 @@ void process_cluster(uint64_t begin, uint64_t i){
 			       BWT_MOD.push_back(FreqSymb[0]);
 			       modified++;
 			     }
-			     else if(c==symbPrec_1){
+			     else if(c==symbPrec_[1]){
 			       #if DEBUG
 				   cout << "j: " << j << "\tBWT: " << bwt[j] << "\tBWT_MOD: " << FreqSymb[1] << endl;
 			       #endif
