@@ -1072,14 +1072,12 @@ int main(int argc, char** argv){
 
   cout << "Phase 1/4: loading and indexing eBWT ... " << flush;
   bwt = dna_bwt_n_t(input_dna,TERM);
-  cout << "done." << endl;
-
-
   //number of reads in the file
   //uint64_t N = bwt.rank(bwt.size(),TERM);	
   uint64_t N = bwt.get_number_of_strings();
   cout << "Number of reads: " << N << endl;
-
+  cout << "done." << endl;
+	
   //detects clusters through local LCP minima
   //Phase 2/4: navigating suffix tree leaves
   //Phase 3/4: computing LCP minima
@@ -1087,12 +1085,12 @@ int main(int argc, char** argv){
   cout << "done." << endl;
 
   //start procedure run		
-  cout << "\nPhase 4/5: process clusters ... " << flush;
+  cout << "\nPhase 4/5: process clusters ... " << endl;
   run();
   cout << "done." << endl;
 	
   //invert BWT
-  cout << "\nPhase 4/5: inverting eBWT ... " << flush;
+  cout << "\nPhase 5/5: inverting eBWT ... " << endl;
   invert();
   cout << "done." << endl;
 
