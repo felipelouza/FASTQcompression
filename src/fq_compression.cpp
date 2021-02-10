@@ -131,7 +131,7 @@ void help(){
     "-d <arg>    Quality score for MODE 2. Default: " << (int)default_value_def-33 << "." << endl <<
     "-s <arg>    ASCII value of terminator character. Default: " << int('#') << " (#)." << endl <<
     "-D          Print debug info for each BWT position." << endl << endl <<
-    "-H <arg>    Original headers from file." << endl << endl <<
+    "-H <arg>    List of original headers." << endl << endl <<
     
     "\nTo run FASTQcompression, you must first build the extended Burrows-Wheeler Transform " <<
     "of the input DNA sequences and the corresponding permutation of base quality scores." << endl;
@@ -246,7 +246,7 @@ void detect_minima(){
     }
   }
   
-  cout << "Computed " << lcp_values << "/" << n << " LCP threshold values." << endl;
+  cout << "done.\nComputed " << lcp_values << "/" << n << " LCP threshold values." << endl;
   
   cout << "Max stack depth = " << max_stack << endl;
   cout << "Processed " << leaves << " suffix-tree leaves." << endl << endl;
@@ -709,8 +709,6 @@ void run(){
         last_perc = perc;
       }
   }
-  
-  cout << endl << "Done." << endl;
 
   //FELIPE
   rankbv_build(rbv);
@@ -743,11 +741,13 @@ void invert(){
   ifstream in(original_fastq);
   */
 
-  FILE *f_in = fopen(input_titles.c_str(), "r");
-  if(!f_in) perror("invert");
-
+  FILE *f_in;
+  if(not ignore_headers){
+	f_in= fopen(input_titles.c_str(), "r");
+  	if(!f_in) perror("invert");
+  }
   FILE *f_out = fopen(output.c_str(), "w");
-  if(!f_in) perror("invert");
+  if(!f_out) perror("invert");
 
   char header[]="@\n";
   char plus[]="+\n";
@@ -1081,14 +1081,20 @@ int main(int argc, char** argv){
   cout << "Number of reads: " << N << endl;
 
   //detects clusters through local LCP minima
+  //Phase 2/4: navigating suffix tree leaves
+  //Phase 3/4: computing LCP minima
   detect_minima();
+  cout << "done." << endl;
 
-  //start procedure run			
+  //start procedure run		
+  cout << "\nPhase 4/5: process clusters ... " << flush;
   run();
-  cout << "end run" << endl;
+  cout << "done." << endl;
+	
   //invert BWT
+  cout << "\nPhase 4/5: inverting eBWT ... " << flush;
   invert();
-  cout << "end invert" << endl;
+  cout << "done." << endl;
 
 
   cout << clusters_size << " (" << (double(100*clusters_size)/bwt.size()) <<  "%) bases fall inside a cluster" << endl;
