@@ -712,6 +712,10 @@ void run(){
 
   //FELIPE
   rankbv_build(rbv);
+  LCP_minima.clear();
+  LCP_minima.shrink_to_fit();
+  LCP_threshold.clear();
+  LCP_threshold.shrink_to_fit();
   //cout << "rank = "<<rankbv_rank1(rbv,n)<<endl;
   
   //print clusters statistics (i.e. number of bases that fall inside each cluster of a fixed size)
