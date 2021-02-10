@@ -41,7 +41,7 @@ Ratio = 0.17
 
 Summing up what FASTQcompression does:
 
-0. (Pre-processing) It takes in input a FASTQ file and build the ebwt string (with DNA bases) and the associated permuted qs string (with quality scores) by using the tool gsufsort.
+0. (Pre-processing) It takes in input a FASTQ file and build the ebwt string (with DNA bases) and the associated permuted qs string (with quality scores) by using the tool gsufsort or the tool BCR.
 
 1. It processes by means of fq_compression the ebwt string and the associated permuted qs string. Note that fq_compression takes in input the original FASTQ file only for recovering original headers.
 
