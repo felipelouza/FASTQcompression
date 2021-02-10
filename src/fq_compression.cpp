@@ -842,7 +842,8 @@ void invert(){
       #endif
     }
 
-  fclose(f_in);
+  if(not ignore_headers)
+	 fclose(f_in);
   fclose(f_out);
   #else  
     //TODO
