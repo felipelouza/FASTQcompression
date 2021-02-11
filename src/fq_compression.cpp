@@ -36,13 +36,6 @@
 
 #define LONGEST 10000 //longest read
 
-/*uint64_t min_cluster_length = 1000;
-uint64_t num_close_freq = 0;
-uint64_t num_cluster_5 = 0;
-uint64_t cluster_5_close_freq = 0;
-uint64_t num_cluster = 0;
-uint64_t tryz = 0;*/
-
 using namespace std;
 
 string input_dna;
@@ -80,7 +73,7 @@ int K_def = 16;
 int K = 0;
 
 //do not consider clusters smaller than this threshold
-int m_def = 1;
+int m_def = 2;
 int m = 0;
 
 //default qs
@@ -461,9 +454,6 @@ void process_cluster(uint64_t begin, uint64_t i){
     cout << "WARNING: unsupported choice. The process will use M=0." << endl;
     newqs = max_qs(start,end);
   #endif
-  #if B==1
-    newqs = illumina_8_level_binning(newqs-33);
-  #endif
 
   #if DEBUG
     if(verbose) cout << "****\n";
@@ -483,9 +473,6 @@ void process_cluster(uint64_t begin, uint64_t i){
 	 #endif
          if( perc >= rare_threshold )
             FreqSymb.push_back(dna(i));
-            
-         //reset freqs
-         freqs[i]=0;
      }
   }
   #if DEBUG
@@ -620,8 +607,6 @@ void process_cluster(uint64_t begin, uint64_t i){
  * PROCEDURE run NAVIGATES suffix tree, and computes LCP minima, EXECUTES process_cluster for each detected cluster.
  */
 void run(){
-    
-  ofstream out_file = ofstream(output);
   
   //read base qualities (permuted according to the BWT) into QUAL
   {
@@ -630,9 +615,6 @@ void run(){
       ostringstream ss;
       ss << f.rdbuf();
       QUAL = ss.str();
-	    #if M==2
-	      def_qs();
-  	  #endif
     }
   }
   
@@ -662,11 +644,6 @@ void run(){
   uint64_t clust_len=0;
   bool cluster_open=false;
   
-  int perc = -1;
-  int last_perc = -1;
-  
-  uint64_t clust_size = 0; //cumulative cluster size
-  
   #if DEBUG
     //used only to compute and visualize cluster statistics
     uint64_t MAX_CLUST_LEN = 200;
@@ -679,18 +656,15 @@ void run(){
       
     if(LCP_threshold[i] and not LCP_minima[i]){
           
-      if(cluster_open){//extend current cluster
-        clust_len++;
-      }else{//open new cluster
+      if(not cluster_open){//open new cluster
         cluster_open=true;
         clust_len=1;
         begin=i;
       }
           
-      }else{
+    }else{
           
         if(cluster_open){//close current cluster
-          clust_size += clust_len;
           #if DEBUG
             if(clust_len<=MAX_CLUST_LEN) CLUST_SIZES[clust_len]+=clust_len;
           #endif
@@ -699,24 +673,25 @@ void run(){
         cluster_open=false;
         clust_len = 0;
       }
-      
-      perc = (100*i)/n;
-      
-      if(perc > last_perc){
-        #if DEBUG
-          if(verbose) cout << perc << "%. "<<endl;
-        #endif
-        last_perc = perc;
-      }
   }
 
+  if(cluster_open){//close last cluster
+     #if DEBUG
+      if(clust_len<=MAX_CLUST_LEN) CLUST_SIZES[clust_len]+=clust_len;
+     #endif
+     process_cluster(begin, n);
+  }
+	
   //FELIPE
   rankbv_build(rbv);
+  //cout << "rank = "<<rankbv_rank1(rbv,n)<<endl;
+
+  //Remove bitvectors
   LCP_minima.clear();
   LCP_minima.shrink_to_fit();
   LCP_threshold.clear();
   LCP_threshold.shrink_to_fit();
-  //cout << "rank = "<<rankbv_rank1(rbv,n)<<endl;
+ 
   
   //print clusters statistics (i.e. number of bases that fall inside each cluster of a fixed size)
   #if DEBUG
